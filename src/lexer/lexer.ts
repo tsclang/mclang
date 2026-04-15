@@ -9,6 +9,7 @@ import {
   token,
 } from './token.js';
 import { LexerError, type Diagnostic } from './error.js';
+import { ErrorCode } from '../diagnostics/index.js';
 
 // Tokens after which `|` is treated as AbsClose (value context)
 // Any token that can end an expression/value:
@@ -239,14 +240,20 @@ export class Lexer {
     }
 
     // Unknown character
-    this.errorAt(`Unexpected character '${c}'`, this.pos, {
-      hint: `Remove or replace this character.`,
-    });
+    const unknownPos = this.capturePos();
+    this.errorAt(
+      ErrorCode.UnknownCharacter,
+      `Unexpected character '${c}'`,
+      'not a valid mclang character',
+      unknownPos,
+      undefined,
+      { hint: 'Remove or replace this character.' },
+    );
   }
 
   private handleIndentation(): void {
     let indent = 0;
-    const startPos = this.pos;
+    const startPos = this.capturePos();
 
     while (this.pos < this.source.length) {
       const c = this.current();
@@ -285,9 +292,14 @@ export class Lexer {
       }
       const top = this.indentStack[this.indentStack.length - 1] ?? 0;
       if (top !== indent) {
-        this.errorAt(`Inconsistent indentation`, startPos, {
-          hint: `Expected ${top} spaces but got ${indent}. Use consistent indentation.`,
-        });
+        this.errorAt(
+          ErrorCode.InconsistentIndent,
+          'Inconsistent indentation',
+          `expected ${top} spaces, got ${indent}`,
+          startPos,
+          undefined,
+          { hint: 'Use consistent indentation. All lines in a block must align.' },
+        );
       }
     }
   }
@@ -340,9 +352,15 @@ export class Lexer {
           this.advance();
         }
         if (!this.isDigit(this.current())) {
-          this.errorAt(`Invalid scientific notation: expected digit after exponent`, this.pos, {
-            hint: `Write the exponent as a number, e.g. 1e-9`,
-          });
+          const badPos = this.capturePos();
+          this.errorAt(
+            ErrorCode.BadScientificNotation,
+            'Invalid scientific notation: expected digit after exponent sign',
+            'digit expected here',
+            badPos,
+            undefined,
+            { hint: 'Write the exponent as a number, e.g. 1e-9 or 6.674e+11' },
+          );
         }
         while (this.pos < this.source.length && this.isDigit(this.current())) {
           value += this.current();
@@ -414,9 +432,14 @@ export class Lexer {
 
     // Unknown LaTeX command
     const end = this.capturePos();
-    this.emitTokenAt(`Unknown LaTeX command: ${cmd}`, start, {
-      hint: `Check the command spelling. Supported commands are listed in LATEX.md.`,
-    });
+    this.errorAt(
+      ErrorCode.UnknownLatexCommand,
+      `Unknown LaTeX command '${cmd}'`,
+      'not in the supported LaTeX table',
+      start,
+      end,
+      { hint: 'Supported commands: \\frac, \\sqrt, \\sin, \\cos, \\int, \\sum, ...\nSee LATEX.md for the full list.' },
+    );
   }
 
   private scanIdentifier(): void {
@@ -572,38 +595,47 @@ export class Lexer {
   }
 
   private errorAt(
+    code: ErrorCode,
     message: string,
-    posOrOffset: number | Position,
+    labelMsg: string,
+    startPos: Position,
+    endPos?: Position,
     opts: { hint?: string; notes?: string[] } = {},
   ): never {
-    const pos: Position = typeof posOrOffset === 'number'
-      ? { line: this.line, col: this.col, offset: posOrOffset }
-      : posOrOffset;
-    const span: Span = { start: pos, end: pos, file: this.file };
+    const end = endPos ?? startPos;
+    const span: Span = { start: startPos, end, file: this.file };
     const diag: Diagnostic = {
       level: 'error',
-      code: 'E000',
+      code,
       message,
-      span,
-      ...(opts.hint !== undefined ? { hint: opts.hint } : {}),
+      primary: { span, message: labelMsg, primary: true },
+      ...(opts.hint  !== undefined ? { hint: opts.hint }   : {}),
       ...(opts.notes !== undefined ? { notes: opts.notes } : {}),
     };
     throw new LexerError(diag);
   }
 
-  private emitTokenAt(
+  private warnAt(
+    code: ErrorCode,
     message: string,
-    start: Position,
-    opts: { hint?: string } = {},
-  ): never {
-    const span: Span = { start, end: this.capturePos(), file: this.file };
+    labelMsg: string,
+    startPos: Position,
+    endPos?: Position,
+    opts: { hint?: string; notes?: string[] } = {},
+  ): void {
+    const end = endPos ?? startPos;
+    const span: Span = { start: startPos, end, file: this.file };
     const diag: Diagnostic = {
-      level: 'error',
-      code: 'E000',
+      level: 'warning',
+      code,
       message,
-      span,
-      ...(opts.hint !== undefined ? { hint: opts.hint } : {}),
+      primary: { span, message: labelMsg, primary: true },
+      ...(opts.hint  !== undefined ? { hint: opts.hint }   : {}),
+      ...(opts.notes !== undefined ? { notes: opts.notes } : {}),
     };
-    throw new LexerError(diag);
+    // Warnings are collected; fatal errors throw immediately.
+    // For now we print to stderr and continue.
+    process.stderr.write(message + '\n');
+    void diag; // TODO: route through DiagnosticBag in phase 2
   }
 }
