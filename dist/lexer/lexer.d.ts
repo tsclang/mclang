@@ -33,6 +33,6 @@ export declare class Lexer {
     private isIdentStart;
     private isIdentPart;
     private errorAt;
-    private emitTokenAt;
+    private warnAt;
 }
 //# sourceMappingURL=lexer.d.ts.map

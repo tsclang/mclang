@@ -1,16 +1,3 @@
-import type { Span } from '../types/index.js';
-export type DiagnosticLevel = 'error' | 'warning';
-export type Diagnostic = {
-    level: DiagnosticLevel;
-    code: string;
-    message: string;
-    span: Span;
-    hint?: string;
-    notes?: string[];
-};
-export declare class LexerError extends Error {
-    readonly diagnostic: Diagnostic;
-    constructor(diagnostic: Diagnostic);
-}
-export declare function formatDiagnostic(diag: Diagnostic, source: string): string;
+export { CompilerError as LexerError, DiagnosticBag, formatDiagnostic, formatDiagnostics, } from '../diagnostics/index.js';
+export type { Diagnostic, DiagnosticLevel } from '../diagnostics/index.js';
 //# sourceMappingURL=error.d.ts.map
