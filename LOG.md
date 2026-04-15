@@ -16,32 +16,38 @@
 
 ## Фаза 0 — Инициализация проекта
 
-**Статус:** не начата
+### [2026-04-15] Фаза 0 — Инициализация проекта
+**Статус:** готово
 
-- [ ] `npm init` + `tsconfig.json`
-- [ ] Зависимости: `typescript`, `ts-node`, `@types/node`
-- [ ] Тест-фреймворк: `vitest`
-- [ ] Структура папок: `src/lexer`, `src/parser`, `src/ast`, `src/codegen`, `src/math`, `src/types`, `src/cli`
-- [ ] CLI-точка входа: `src/cli/index.ts`
-- [ ] Скрипты: `build`, `test`, `dev`
+- [x] `npm init` + `tsconfig.json`
+- [x] Зависимости: `typescript`, `ts-node`, `@types/node`
+- [x] Тест-фреймворк: `vitest`
+- [x] Структура папок: `src/lexer`, `src/parser`, `src/ast`, `src/codegen`, `src/math`, `src/types`, `src/cli`
+- [x] CLI-точка входа: `src/cli/index.ts`
+- [x] Скрипты: `build`, `test`, `dev`
+
+**Заметки:** `"type": "module"` + `moduleResolution: NodeNext`. `npx tsc` работает через `node_modules/.bin/tsc`.
 
 ---
 
 ## Фаза 1 — Лексер
 
-**Статус:** не начата
+### [2026-04-15] Фаза 1 — Лексер
+**Статус:** готово
 
-- [ ] Токенизация чисел (целые, дробные, `1e-9`)
-- [ ] Токенизация ASCII-идентификаторов
-- [ ] Токенизация Unicode-идентификаторов
-- [ ] Трансляция LaTeX-команд в токены (`\lfloor` → `⌊`, …)
-- [ ] Таблица синонимов trig-функций
-- [ ] Disambiguation `|` vs `||`
-- [ ] Lookahead `\sigma{` vs `\sigma`
-- [ ] `INDENT` / `DEDENT`
-- [ ] Символ `°` → токен `DEGREE`
-- [ ] Постфикс `!` → токен `FACTORIAL`
-- [ ] Пропуск комментариев `//`
+- [x] Токенизация чисел (целые, дробные, `1e-9`)
+- [x] Токенизация ASCII-идентификаторов
+- [x] Токенизация Unicode-идентификаторов
+- [x] Трансляция LaTeX-команд в токены (`\lfloor` → `⌊`, …)
+- [x] Таблица синонимов trig-функций
+- [x] Disambiguation `|` vs `||`
+- [x] Lookahead `\sigma{` vs `\sigma`
+- [x] `INDENT` / `DEDENT`
+- [x] Символ `°` → токен `DEGREE`
+- [x] Постфикс `!` → токен `FACTORIAL`
+- [x] Пропуск комментариев `//`
+
+**Заметки:** 45 тестов проходят. Реализован в `src/lexer/lexer.ts` + `token.ts` + `error.ts`. Форматирование ошибок в Rust-стиле через `formatDiagnostic`.
 
 ---
 

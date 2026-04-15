@@ -4,6 +4,8 @@
 
 **mclang** (Math C Language) — специализированный язык для описания математических вычислений, транслируемый в чистый код на языке Си без внешних зависимостей.
 
+Файлы исходного кода имеют расширение **`.mc`** (пример: `physics.mc`, `constants.mc`).
+
 ### 1.1 Назначение
 
 Язык-вычислитель, а не язык общего назначения. Не предназначен для I/O, UI или сетевого взаимодействия. Цель — принять числовые аргументы, вычислить формулу и вернуть результат.
@@ -20,9 +22,66 @@
 
 ### 1.3 Модель интеграции
 
-- **JavaScript (Wasm):** функции экспортируются как обычные JS-функции
-- **Python:** модуль импортируется как нативный C extension
-- **C/C++:** `#include "module.h"` и прямой вызов функций
+Один `.mc`-файл компилируется в одну библиотеку. Таргет выбирается при компиляции — исходник не меняется.
+
+#### JavaScript / WebAssembly
+
+```
+mclang physics.mc --target wasm
+```
+
+```javascript
+import { trajectory, impact_force } from './physics.wasm';
+
+const height = trajectory(1.5, 20.0, 45.0);
+console.log(`Высота: ${height}м`);
+```
+
+#### Python (C extension)
+
+```
+mclang physics.mc --target shared
+```
+
+```python
+import ctypes
+mc = ctypes.CDLL('./physics.so')
+mc.impact_force.restype = ctypes.c_double
+mc.impact_force.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_double]
+
+force = mc.impact_force(70.5, 15.0, 0.1)
+print(f"Сила: {force} Н")
+```
+
+Или через cffi / nanobind (обёртка генерируется компилятором при `--target shared`):
+
+```python
+import mclang_physics as mc
+
+force = mc.impact_force(mass=70.5, velocity=15.0, time=0.1)
+print(f"Сила: {force} Н")
+```
+
+#### C / C++
+
+```
+mclang physics.mc --target c
+```
+
+```c
+#include "physics.h"
+
+int main(void) {
+    double force = impact_force(70.5, 15.0, 0.1);
+    printf("Сила: %f Н\n", force);
+    return 0;
+}
+```
+
+Компиляция:
+```
+gcc main.c physics.c -o app -lm
+```
 
 ---
 
@@ -838,13 +897,45 @@ _clamp(x, lo, hi) =
 
 ## 15. Импорты и модули
 
+### 15.1 Импорт пользовательских `.mc`-файлов
+
+```
+import "./constants.mc"
+```
+
+Компилятор читает указанный файл, включает все его публичные функции и константы в текущую область видимости. В сгенерированном Си-коде это превращается в `#include "constants.h"`.
+
+Именованный импорт (только конкретные символы):
+
+```
+from "./fluid_dynamics.mc" import drag_coefficient
+```
+
+Алиас (для разрешения конфликтов имён):
+
+```
+import "./astronomy.mc" as astro
+import "./ballistics.mc" as ball
+
+res = astro.calculate(x) + ball.calculate(y)
+```
+
+**Правила:**
+- Путь всегда относительный, начинается с `"./"` или `"../"`
+- Циклические импорты запрещены (ошибка компиляции)
+- Приватные функции (с `_`) не импортируются
+- При конфликте имён без алиаса — ошибка компиляции
+
+### 15.2 Импорт стандартной библиотеки (v2)
+
 ```
 import std.math
-import std.chemistry
 import std.physics
 import std.physics.mechanics as mech
 import std.geom.2d as geom
 ```
+
+Стандартная библиотека в MVP не реализована. Встроенные математические функции (`sin`, `cos`, `sqrt`, …) и константы (`π`, `e`, `τ`) доступны без импорта всегда.
 
 ---
 
