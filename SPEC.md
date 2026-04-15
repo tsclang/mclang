@@ -1011,6 +1011,36 @@ circle_x(r, t, center_x = 0) = center_x + r * cos(t)
 
 Грамматика описана в нотации PEG (Parsing Expression Grammar). Парсер строится как рекурсивный нисходящий (recursive descent) — PEG однозначно описывает приоритеты и не требует отдельных таблиц.
 
+### 20.1 Лексические правила разрешения неоднозначностей
+
+**Правило 1: `\lfloor`, `\rfloor`, `\lceil`, `\rceil`, `\lVert`, `\rVert`**
+
+Лексер переводит LaTeX-команды в Unicode-токены до парсинга:
+
+| LaTeX | Unicode-токен |
+|-------|--------------|
+| `\lfloor` | `⌊` |
+| `\rfloor` | `⌋` |
+| `\lceil` | `⌈` |
+| `\rceil` | `⌉` |
+| `\lVert` | `‖` (открывающий) |
+| `\rVert` | `‖` (закрывающий) |
+
+Парсер работает только с Unicode-токенами.
+
+**Правило 2: `\sigma` и `\Gamma` — функция vs идентификатор**
+
+Обе команды перегружены: могут быть греческой буквой-идентификатором или математической функцией.
+
+| Контекст | Трактовка |
+|---------|-----------|
+| `\sigma{expr}` — за командой сразу `{` | функция `std(expr)` |
+| `\sigma` без `{` | идентификатор `__uni_sigma` |
+| `\Gamma{expr}` — за командой сразу `{` | функция `tgamma(expr)` |
+| `\Gamma` без `{` | идентификатор `__uni_Gamma` |
+
+Лексер применяет 1-символьный lookahead: следующий токен `{` → функция, иначе → идентификатор.
+
 ```peg
 file        = (const_def / import / func_def / NL)*
 import      = "import" identifier ("as" identifier)? NL
@@ -1042,7 +1072,8 @@ vec_expr    = mul_expr (("⨯") mul_expr)*
 mul_expr    = pow_expr (("*" / "⋅" / "/" / "÷" / "%" / ".*") pow_expr)*
 pow_expr    = unary ("^" / "**" pow_expr)?         // правоассоциативный
 unary       = ("-" / "!" / "¬" / "not")? postfix
-postfix     = primary ("[" expr "]")* ("." identifier)*
+postfix     = primary ("!" / "°")? ("[" expr "]")* ("." identifier)*
+              // "!" — факториал (постфикс); "°" — градусы → радианы
 primary     = "(" expr ")"
             / abs_expr
             / norm_expr
@@ -1057,16 +1088,14 @@ primary     = "(" expr ")"
             / identifier
 
 abs_expr    = "|" expr "|"
-norm_expr   = "‖" expr "‖"                    // \lVert \rVert
-floor_expr  = "⌊" expr "⌋"                    // \lfloor \rfloor
-ceil_expr   = "⌈" expr "⌉"                    // \lceil \rceil
-pm_expr     = "\pm" expr                       // возвращает num[2]
-factorial   = postfix "!"                      // постфиксный
-degree      = number "°"                       // число * π/180
-cases_expr  = "\begin{cases}" NL
-              (expr "&" expr "\\" NL)+         // случаи с условием
+norm_expr   = ("‖" / "\\lVert") expr ("‖" / "\\rVert")
+floor_expr  = ("⌊" / "\\lfloor") expr ("⌋" / "\\rfloor")
+ceil_expr   = ("⌈" / "\\lceil") expr ("⌉" / "\\rceil")
+pm_expr     = "\\pm" expr                      // возвращает num[2]
+cases_expr  = "\\begin{cases}" NL
+              (expr "&" expr "\\\\" NL)+       // случаи с условием
               (expr NL)?                       // опциональный else
-              "\end{cases}"
+              "\\end{cases}"
 sum_expr    = ("\\sum" / "\\prod" / "\\min" / "\\max") "_{"
               ( identifier "=" expr "}" "^{" expr "}"   // по диапазону: i=a, верхняя граница b
               / identifier "\\in" identifier "}"        // по массиву: x \in v
