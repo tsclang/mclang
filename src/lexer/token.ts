@@ -23,6 +23,15 @@ export const enum TokenKind {
   KwSolve = 'solve',
   KwNaN = 'nan',
   KwInf = 'inf',
+  KwAnd = 'and',
+  KwOr = 'or',
+  KwNot = 'not',
+  KwXor = 'xor',
+  KwStep = 'step',
+  KwMod = 'mod',
+  KwImport = 'import',
+  KwFrom = 'from',
+  KwAs = 'as',
 
   // Arithmetic operators
   Plus = '+',
@@ -72,6 +81,9 @@ export const enum TokenKind {
   Dot2 = '..',      // range a..b
   Arrow = '->',
   Backslash = '\\',
+
+  // Punctuation
+  Period = '.',     // member access (v.length)
 
   // Math delimiters (Unicode, after LaTeX translation)
   AbsOpen = '|',    // context-sensitive: open abs
@@ -168,6 +180,15 @@ export const KEYWORDS: ReadonlyMap<string, TokenKind> = new Map([
   ['solve',   TokenKind.KwSolve],
   ['nan',     TokenKind.KwNaN],
   ['inf',     TokenKind.KwInf],
+  ['and',     TokenKind.KwAnd],
+  ['or',      TokenKind.KwOr],
+  ['not',     TokenKind.KwNot],
+  ['xor',     TokenKind.KwXor],
+  ['step',    TokenKind.KwStep],
+  ['mod',     TokenKind.KwMod],
+  ['import',  TokenKind.KwImport],
+  ['from',    TokenKind.KwFrom],
+  ['as',      TokenKind.KwAs],
 ]);
 
 // LaTeX commands → token kind

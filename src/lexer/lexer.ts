@@ -155,6 +155,12 @@ export class Lexer {
       return;
     }
 
+    // Period: member access `.` (only when not `..`)
+    if (c === '.' && this.peek(1) !== '.') {
+      this.pushTokenAt(TokenKind.Period, '.', 1);
+      return;
+    }
+
     // Multi-char operators
     if (c === '*' && this.peek(1) === '*') {
       this.pushTokenAt(TokenKind.StarStar, '**', 2);
@@ -529,6 +535,8 @@ export class Lexer {
         ? TokenKind.NormClose
         : TokenKind.NormOpen;
       case '°': return TokenKind.Degree;
+      case '∑': return TokenKind.Sum;
+      case '∏': return TokenKind.Prod;
       default: return null;
     }
   }

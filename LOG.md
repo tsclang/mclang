@@ -53,19 +53,25 @@
 
 ## Фаза 2 — Парсер и AST
 
-**Статус:** не начата
+### [2026-04-18] Фаза 2 — Парсер и AST
+**Статус:** готово
 
-- [ ] Рекурсивный нисходящий PEG-парсер
-- [ ] Узлы AST: `Number`, `Identifier`, `BinaryOp`, `UnaryOp`, `FuncCall`
-- [ ] Узлы AST: `FuncDef`, `ConstDef`, `Block`, `IfStmt`, `ForStmt`, `WhileStmt`
-- [ ] Узлы AST: `WhereBlock`, `IndexExpr`, `SliceExpr`, `ArrayLit`, `MatrixLit`
-- [ ] Объявление функций с параметрами и типами
-- [ ] Глобальные константы
-- [ ] Параметры по умолчанию
-- [ ] `where`-блок: топосорт + guard-и
-- [ ] Неявный `return`
-- [ ] ASI
-- [ ] Значимые отступы
+- [x] Рекурсивный нисходящий PEG-парсер
+- [x] Узлы AST: `NumberLit`, `BoolLit`, `IdentExpr`, `BinaryExpr`, `UnaryExpr`, `FuncCallExpr`
+- [x] Узлы AST: `FuncDef`, `ConstDef`, `ImportDef`, `IfNode`, `ForStmt`, `WhileStmt`
+- [x] Узлы AST: `WhereBlock`, `IndexExpr`, `SliceExpr`, `MemberExpr`, `ArrayLit`, `MatrixLit`
+- [x] Узлы AST: `FracExpr`, `SqrtExpr`, `AbsExpr`, `NormExpr`, `FloorExpr`, `CeilExpr`
+- [x] Узлы AST: `PmExpr`, `CasesExpr`, `SumExpr`, `PostfixExpr`, `ChainCmpExpr`, `IfExpr`
+- [x] Объявление функций с параметрами и типами (`num[]`, `int`)
+- [x] Глобальные константы
+- [x] Параметры по умолчанию
+- [x] `where`-блок: определения (WhereDef) + guard-и (WhereGuard)
+- [x] Неявный `return` — последний ExprStmt в теле
+- [x] Значимые отступы (через INDENT/DEDENT от лексера)
+- [x] Обновлён `token.ts`: `Period`, `KwAnd/Or/Not/Xor/Step/Mod/Import/From/As`
+- [x] Обновлён `lexer.ts`: токены `Period` (`.`), `∑`→Sum, `∏`→Prod
+
+**Заметки:** 33 новых теста + 93 всего проходят. Критерий готовности выполнен: полный пример из раздела 22 SPEC.md парсируется без ошибок. Реализовано в `src/parser/parser.ts` + `src/ast/nodes.ts`.
 
 ---
 
