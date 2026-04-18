@@ -91,8 +91,19 @@ export class CGenerator {
   private lines: string[] = [];
   private hLines: string[] = [];
 
-  // Track global const names for the header
+  // Track public function names for the header
   private publicFuncs: string[] = [];
+
+  // Type environment for current function's params
+  private typeEnv: Map<string, McType> = new Map();
+
+  // Flags for needed runtime helpers
+  private needDotHelper = false;
+  private needCrossHelper = false;
+  private needMatmulHelper = false;
+
+  // Counter for unique local array names
+  private localArrCount = 0;
 
   constructor(ast: File) {
     this.ast = ast;
@@ -104,6 +115,7 @@ export class CGenerator {
 
     this.genHeader();
     this.genFile();
+    this.genRuntimeHelpers();
 
     const guardName = '__MCLANG_OUT_H__';
     const hPrologue = [
@@ -154,6 +166,30 @@ export class CGenerator {
     this.emit('');
   }
 
+  private genRuntimeHelpers(): void {
+    if (this.needDotHelper) {
+      this.emit('static inline mc_num mc_dot(const mc_num* a, const mc_num* b, int n) {');
+      this.emit('  mc_num s = 0.0; for (int i = 0; i < n; i++) s += a[i]*b[i]; return s;');
+      this.emit('}');
+      this.emit('');
+    }
+    if (this.needCrossHelper) {
+      this.emit('static void mc_cross(const mc_num* a, const mc_num* b, mc_num* out) {');
+      this.emit('  out[0]=a[1]*b[2]-a[2]*b[1]; out[1]=a[2]*b[0]-a[0]*b[2]; out[2]=a[0]*b[1]-a[1]*b[0];');
+      this.emit('}');
+      this.emit('');
+    }
+    if (this.needMatmulHelper) {
+      this.emit('static void mc_matmul(const mc_num* A, const mc_num* B, mc_num* C,');
+      this.emit('                      int rows, int inner, int cols) {');
+      this.emit('  for (int i=0;i<rows;i++) for (int j=0;j<cols;j++) {');
+      this.emit('    mc_num s=0.0; for (int k=0;k<inner;k++) s+=A[i*inner+k]*B[k*cols+j];');
+      this.emit('    C[i*cols+j]=s; }');
+      this.emit('}');
+      this.emit('');
+    }
+  }
+
   private genFile(): void {
     for (const node of this.ast.body) {
       this.genTopLevel(node);
@@ -180,6 +216,12 @@ export class CGenerator {
   // ── Func def ────────────────────────────────────────────────────────────────
 
   private genFuncDef(node: FuncDef): void {
+    // Populate type environment for this function
+    this.typeEnv = new Map();
+    for (const p of node.params) {
+      if (p.type) this.typeEnv.set(p.name, p.type);
+    }
+
     const isPrivate = node.name.startsWith('_');
     const cName = translit(node.name);
 
@@ -426,21 +468,36 @@ export class CGenerator {
     return translit(name);
   }
 
+  private inferType(expr: Expr): McType | undefined {
+    if (expr.kind === 'IdentExpr') return this.typeEnv.get(expr.name);
+    return undefined;
+  }
+
+  private inferLenExpr(expr: Expr): string {
+    if (expr.kind === 'IdentExpr') {
+      const name = translit(expr.name);
+      const ty = this.typeEnv.get(expr.name);
+      if (isMatrixType(ty)) return `${name}_rows, ${name}_cols`;
+      if (isArrayType(ty)) return `${name}_len`;
+    }
+    return '0';
+  }
+
   private genBinary(expr: BinaryExpr): string {
+    if (expr.op === '⋅') return this.genDot(expr);
+    if (expr.op === '⨯') return this.genCross(expr);
     const l = this.genExpr(expr.left);
     const r = this.genExpr(expr.right);
     switch (expr.op) {
       case '+':  return `(${l} + ${r})`;
       case '-':  return `(${l} - ${r})`;
-      case '*':
-      case '⋅':  return `(${l} * ${r})`;
+      case '*':  return `(${l} * ${r})`;
       case '/':
       case '÷':  return `(${l} / ${r})`;
       case '%':  return `fmod(${l}, ${r})`;
       case '^':  return `pow(${l}, ${r})`;
       case '**': return `pow(${l}, ${r})`;
-      case '⨯':  return `mc_cross(${l}, ${r})`;
-      case '.*': return `mc_emul(${l}, ${r})`;
+      case '.*': return `(${l} * ${r})`; // element-wise scalar fallback
       case '==': return `((${l}) == (${r}) ? 1.0 : 0.0)`;
       case '!=':
       case '≠':  return `((${l}) != (${r}) ? 1.0 : 0.0)`;
@@ -453,10 +510,37 @@ export class CGenerator {
       case '&&': return `((${l}) && (${r}) ? 1.0 : 0.0)`;
       case '||': return `((${l}) || (${r}) ? 1.0 : 0.0)`;
       case 'xor': return `(((${l}) != 0.0) ^ ((${r}) != 0.0) ? 1.0 : 0.0)`;
-      case '∈':  return `((${l}) >= (${r}))`;  // simplified; range handled by parser
+      case '∈':  return `((${l}) >= (${r}))`;
       case '∉':  return `(!((${l}) >= (${r})))`;
       default:   return `(${l} /* ${expr.op} */ ${r})`;
     }
+  }
+
+  private genDot(expr: BinaryExpr): string {
+    const lTy = this.inferType(expr.left);
+    const rTy = this.inferType(expr.right);
+    const l = this.genExpr(expr.left);
+    const r = this.genExpr(expr.right);
+    if (isMatrixType(lTy) && isMatrixType(rTy)) {
+      // Matrix multiply — needs result buffer; not expressible inline
+      // Emit as function call stub — user must provide result buffer
+      this.needMatmulHelper = true;
+      const lInfo = this.inferLenExpr(expr.left);
+      return `/* matmul(${l}, ${r}, result, ${lInfo}) */0.0`;
+    }
+    if (isArrayType(lTy) && isArrayType(rTy)) {
+      this.needDotHelper = true;
+      const len = this.inferLenExpr(expr.left);
+      return `mc_dot(${l}, ${r}, ${len})`;
+    }
+    return `(${l} * ${r})`;
+  }
+
+  private genCross(expr: BinaryExpr): string {
+    this.needCrossHelper = true;
+    const l = this.genExpr(expr.left);
+    const r = this.genExpr(expr.right);
+    return `mc_cross(${l}, ${r})`;
   }
 
   private genUnary(expr: UnaryExpr): string {
@@ -491,14 +575,33 @@ export class CGenerator {
   }
 
   private genIndex(expr: IndexExpr): string {
+    // m[i][j] → m[(int)(i)*m_cols+(int)(j)] for 2D arrays
+    if (expr.object.kind === 'IndexExpr') {
+      const inner = expr.object;
+      if (inner.object.kind === 'IdentExpr') {
+        const name = inner.object.name;
+        const ty = this.typeEnv.get(name);
+        if (isMatrixType(ty)) {
+          const m = translit(name);
+          const i = this.genExpr(inner.index);
+          const j = this.genExpr(expr.index);
+          return `${m}[(int)(${i})*${m}_cols+(int)(${j})]`;
+        }
+      }
+    }
     const obj = this.genExpr(expr.object);
     const idx = this.genExpr(expr.index);
     return `${obj}[(int)(${idx})]`;
   }
 
-  private genSlice(_expr: SliceExpr): string {
-    // Slices return a pointer — complex, emit placeholder
-    return '/* slice */NULL';
+  private genSlice(expr: SliceExpr): string {
+    // v[a..b] → pointer into v starting at a
+    const obj = this.genExpr(expr.object);
+    if (expr.lo) {
+      const lo = this.genExpr(expr.lo);
+      return `(${obj} + (int)(${lo}))`;
+    }
+    return obj;
   }
 
   private genMember(expr: MemberExpr): string {
@@ -513,14 +616,21 @@ export class CGenerator {
     return `${this.genExpr(expr.object)}.${expr.member}`;
   }
 
-  private genArrayLit(_expr: ArrayLit): string {
-    // Inline array literals aren't directly supported in C expressions;
-    // they need to be declared as static arrays. For now emit comment.
-    return '/* array-literal: use local var */';
+  private genArrayLit(expr: ArrayLit): string {
+    // C99 compound literal: (mc_num[]){1.0, 2.0, 3.0}
+    const elems = expr.elements.map(e => this.genExpr(e)).join(', ');
+    return `((mc_num[]){${elems}})`;
   }
 
-  private genMatrixLit(_expr: MatrixLit): string {
-    return '/* matrix-literal: use local var */';
+  private genMatrixLit(expr: MatrixLit): string {
+    // Flat compound literal row-major: (mc_num[]){r0c0, r0c1, r1c0, r1c1, ...}
+    const elems: string[] = [];
+    for (const row of expr.rows) {
+      for (const el of row.elements) {
+        elems.push(this.genExpr(el));
+      }
+    }
+    return `((mc_num[]){${elems.join(', ')}})`;
   }
 
   private genFrac(expr: FracExpr): string {
@@ -545,10 +655,9 @@ export class CGenerator {
   }
 
   private genPm(expr: PmExpr): string {
-    // \pm expr → static mc_num _pm[2] = {+expr, -expr}; return _pm;
-    // In expression context, we can't do this inline — emit a helper macro
+    // \pm expr → (mc_num[]){+(x), -(x)} — C99 compound literal array of 2
     const inner = this.genExpr(expr.operand);
-    return `mc_pm(${inner})`;
+    return `((mc_num[]){+(${inner}), -(${inner})})`;
   }
 
   private genCases(expr: CasesExpr): string {

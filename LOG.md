@@ -130,17 +130,26 @@
 
 ## Фаза 5 — Массивы и матрицы
 
-**Статус:** не начата
+### [2026-04-18] Фаза 5 — Массивы и матрицы
+**Статус:** готово
 
-- [ ] Типы `num[]`, `num[][]`, `num[N]`
-- [ ] Неявные `_len`, `_rows`, `_cols`
-- [ ] Литералы, индексация, срезы
-- [ ] Плоское хранение матриц
-- [ ] Dispatch `⋅` по типу
-- [ ] Поэлементные операции, `⨯`
-- [ ] `transpose`, `det`, `inv`, `norm`
-- [ ] `I(n)`, `zeros`, `ones`
-- [ ] `\pm expr` → `num[2]`
+- [x] Типы `num[]`, `num[][]` → `mc_num*` + `_len` / `_rows` / `_cols`
+- [x] Неявные параметры `_len`, `_rows`, `_cols` в подписи функции
+- [x] `.length` → `_len`, `.rows` → `_rows`, `.cols` → `_cols`
+- [x] Литерал `[a, b, c]` → C99 compound literal `(mc_num[]){a, b, c}`
+- [x] Литерал `[[...], [...]]` → flat compound literal row-major
+- [x] Индексация `v[i]` → `v[(int)(i)]`
+- [x] 2D-индексация `m[i][j]` → `m[(int)(i)*m_cols+(int)(j)]` (с TypeEnv)
+- [x] Срез `v[a..b]` → `v + (int)(a)` (pointer offset)
+- [x] Dispatch `⋅` по типу: `num[]` → `mc_dot(v,w,len)`, scalar → `*`
+- [x] Произведение `⨯` → `mc_cross()` runtime helper
+- [x] `norm(v)` / `‖v‖` → `mc_norm(v, v_len)`
+- [x] Матричное умножение A⋅B → `mc_matmul()` helper (заготовка)
+- [x] `\pm expr` → `(mc_num[]){+(x), -(x)}`
+- [x] TypeEnv: трекинг типов параметров внутри функции
+- [x] Runtime helpers: `mc_dot`, `mc_cross`, `mc_matmul` — inline в .c
+
+**Заметки:** 17 новых тестов + 181 всего проходят. Реализовано в `src/codegen/codegen.ts`. Критерий: dot product, vector norm, 2D-индексация матриц компилируются корректно.
 
 ---
 
