@@ -12,6 +12,16 @@ import type {
   Param, McType,
 } from '../ast/nodes.js';
 
+// ── Options ───────────────────────────────────────────────────────────────────
+
+export type CgenTarget    = 'c' | 'wasm' | 'shared';
+export type CgenPrecision = 'f64' | 'f32' | 'fixed';
+
+export type CgenOptions = {
+  target?:    CgenTarget;
+  precision?: CgenPrecision;
+};
+
 // ── Output ────────────────────────────────────────────────────────────────────
 
 export type CgenOutput = {
@@ -38,11 +48,19 @@ const UNICODE_NAMES: ReadonlyMap<string, string> = new Map([
 
 // Built-in math constants → C values
 const BUILTIN_CONSTS: ReadonlyMap<string, string> = new Map([
+  // Math
   ['π',   'M_PI'],       ['pi',  'M_PI'],
   ['τ',   '(2.0*M_PI)'], ['tau', '(2.0*M_PI)'],
   ['φ',   '1.6180339887498948482'], ['phi', '1.6180339887498948482'],
   ['e',   'M_E'],
   ['inf', 'INFINITY'],   ['nan', 'NAN'],
+  // Physics (std.physics)
+  ['G',   '6.67430e-11'],           // gravitational constant
+  ['c',   '299792458.0'],           // speed of light (m/s)
+  ['h',   '6.62607015e-34'],        // Planck constant (J·s)
+  ['k_B', '1.380649e-23'],          // Boltzmann constant (J/K)
+  ['N_A', '6.02214076e23'],         // Avogadro number (1/mol)
+  ['R',   '8.314462618'],           // universal gas constant (J/mol·K)
 ]);
 
 function translit(name: string): string {
@@ -89,6 +107,7 @@ function isMatrixType(ty: McType | undefined): boolean {
 
 export class CGenerator {
   private readonly ast: File;
+  private readonly opts: Required<CgenOptions>;
   private indent = 0;
   private lines: string[] = [];
   private hLines: string[] = [];
@@ -108,8 +127,12 @@ export class CGenerator {
   // Table registry: name → 'numeric' | 'string'
   private tableKind: Map<string, 'numeric' | 'string'> = new Map();
 
-  constructor(ast: File) {
+  constructor(ast: File, opts: CgenOptions = {}) {
     this.ast = ast;
+    this.opts = {
+      target:    opts.target    ?? 'c',
+      precision: opts.precision ?? 'f64',
+    };
   }
 
   generate(): CgenOutput {
@@ -121,10 +144,16 @@ export class CGenerator {
     this.genFile();
 
     const guardName = '__MCLANG_OUT_H__';
+    const precisionDefine = this.opts.precision === 'f32'
+      ? '#define MC_USE_FAST_FLOAT\n'
+      : this.opts.precision === 'fixed'
+        ? '#define MC_USE_8BIT\n'
+        : '';
     const hPrologue = [
       `#ifndef ${guardName}`,
       `#define ${guardName}`,
       '',
+      precisionDefine,
       '#include <math.h>',
       '#include <stdint.h>',
       '',
@@ -147,6 +176,20 @@ export class CGenerator {
   }
 
   private genHeader(): void {
+    // Precision defines — emitted before system includes so user can override
+    if (this.opts.precision === 'f32') {
+      this.emit('#define MC_USE_FAST_FLOAT');
+    } else if (this.opts.precision === 'fixed') {
+      this.emit('#define MC_USE_8BIT');
+    }
+
+    // Wasm: include Emscripten header if targeting wasm
+    if (this.opts.target === 'wasm') {
+      this.emit('#ifdef __EMSCRIPTEN__');
+      this.emit('#include <emscripten.h>');
+      this.emit('#endif');
+    }
+
     this.emit('#include <math.h>');
     this.emit('#include <stdint.h>');
     this.emit('#include <float.h>');
@@ -301,6 +344,10 @@ export class CGenerator {
     const retType = this.funcReturnType(node);
     const sig = `${retType} ${cName}(${paramStrs.join(', ')})`;
 
+    // Wasm: annotate public functions with EMSCRIPTEN_KEEPALIVE
+    if (!isPrivate && this.opts.target === 'wasm') {
+      this.emit('EMSCRIPTEN_KEEPALIVE');
+    }
     this.emit(`${sig} {`);
     this.indent++;
 
@@ -961,6 +1008,6 @@ const FUNC_MAP: ReadonlyMap<string, string> = new Map([
   ['atan2',  'atan2'],   ['hypot', 'hypot'],
 ]);
 
-export function generateC(ast: File): CgenOutput {
-  return new CGenerator(ast).generate();
+export function generateC(ast: File, opts?: CgenOptions): CgenOutput {
+  return new CGenerator(ast, opts).generate();
 }

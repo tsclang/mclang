@@ -218,10 +218,18 @@
 
 ## Фаза 9 — Таргеты
 
-**Статус:** не начата
+### [2026-04-18] Фаза 9 — Таргеты и сборка
+**Статус:** готово
 
-- [ ] `--target c`
-- [ ] `--target wasm`
-- [ ] `--target shared`
-- [ ] `--precision f32`, `--precision fixed`
-- [ ] Стандартная библиотека: физические константы
+- [x] `CgenOptions` — `{ target, precision }` в `generateC(ast, opts?)`
+- [x] `--precision f64` — дефолт, без дефайнов
+- [x] `--precision f32` → `#define MC_USE_FAST_FLOAT` в `.c` и `.h`
+- [x] `--precision fixed` → `#define MC_USE_8BIT` в `.c` и `.h`
+- [x] `--target c` — финальная полировка `.c` + `.h`
+- [x] `--target wasm` → `#include <emscripten.h>` + `EMSCRIPTEN_KEEPALIVE` перед публичными функциями
+- [x] `--target shared` → `.c` + `.h` + Python ctypes-stub `_loader.py`
+- [x] Физические константы: `G`, `c`, `h`, `k_B`, `N_A`, `R` — встроены в `BUILTIN_CONSTS`
+- [x] CLI (`src/cli/index.ts`) полностью реализован: чтение `.mc`, парсинг, кодоген, запись файлов
+- [x] CLI флаги: `--target`, `--precision`, `--out`, `--tokens`, `--explain`, `--no-color`
+
+**Заметки:** 17 новых тестов + 262 всего проходят. CLI записывает `basename.c` + `basename.h` рядом с источником (или в `--out`). Shared-таргет дополнительно генерирует Python ctypes-заглушку.
