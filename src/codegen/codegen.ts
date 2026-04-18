@@ -303,9 +303,25 @@ export class CGenerator {
   }
 
   private genFile(): void {
+    // Emit forward declarations for all functions first (enables mutual recursion)
+    for (const node of this.ast.body) {
+      if (node.kind === 'FuncDef') {
+        this.genFuncProto(node);
+      }
+    }
+    if (this.ast.body.some(n => n.kind === 'FuncDef')) {
+      this.emit('');
+    }
     for (const node of this.ast.body) {
       this.genTopLevel(node);
     }
+  }
+
+  private genFuncProto(node: FuncDef): void {
+    const paramStrs = this.buildParamList(node.params);
+    const retType = this.funcReturnType(node);
+    const cName = translit(node.name);
+    this.emit(`${retType} ${cName}(${paramStrs.join(', ')});`);
   }
 
   private genTopLevel(node: TopLevelNode): void {

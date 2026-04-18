@@ -85,6 +85,7 @@ export class Lexer {
   private readonly indentStack: number[] = [0];
   private lastTokenKind: TokenKind | null = null;
   private atLineStart = true;
+  private parenDepth = 0;
 
   constructor(source: string, file = '<input>') {
     this.source = source;
@@ -333,7 +334,8 @@ export class Lexer {
 
   private handleNewline(): void {
     // Emit NEWLINE only if last meaningful token was a value (ASI)
-    if (this.lastTokenKind !== null && VALUE_TOKENS.has(this.lastTokenKind)) {
+    // and we are not inside any open paren/bracket/brace (line continuation)
+    if (this.parenDepth === 0 && this.lastTokenKind !== null && VALUE_TOKENS.has(this.lastTokenKind)) {
       this.pushToken(TokenKind.Newline, '\n');
     }
     this.advance();
@@ -613,6 +615,12 @@ export class Lexer {
     const sp: Span = { start, end, file: this.file };
     this.tokens.push(token(kind, value, sp));
     this.lastTokenKind = kind;
+    // Track nesting depth for line-continuation (no NEWLINE inside open brackets)
+    if (kind === TokenKind.LParen || kind === TokenKind.LBracket || kind === TokenKind.LBrace) {
+      this.parenDepth++;
+    } else if (kind === TokenKind.RParen || kind === TokenKind.RBracket || kind === TokenKind.RBrace) {
+      if (this.parenDepth > 0) this.parenDepth--;
+    }
   }
 
   private pushToken(kind: TokenKind, value: string): void {
