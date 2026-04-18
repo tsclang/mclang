@@ -414,7 +414,7 @@ export class CGenerator {
   private genNumber(expr: NumberLit): string {
     if (isNaN(expr.value)) return 'NAN';
     if (!isFinite(expr.value)) return expr.value > 0 ? 'INFINITY' : '-INFINITY';
-    const s = expr.raw;
+    const s = expr.raw ?? String(expr.value);
     // Ensure it looks like a C double literal
     return s.includes('.') || s.includes('e') || s.includes('E') ? s : `${s}.0`;
   }
@@ -470,6 +470,12 @@ export class CGenerator {
   }
 
   private genFuncCall(expr: FuncCallExpr): string {
+    // \log_{base}{x} → log(x) / log(base)
+    if (expr.name === '__log_base' && expr.args.length === 2) {
+      const x = this.genExpr(expr.args[0]!);
+      const base = this.genExpr(expr.args[1]!);
+      return `(log(${x}) / log(${base}))`;
+    }
     const args = expr.args.map(a => this.genExpr(a)).join(', ');
     const name = translit(expr.name);
     // Map known function names to C math.h equivalents

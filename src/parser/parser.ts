@@ -953,6 +953,27 @@ export class Parser {
     const name = t.value.replace(/^\\/, ''); // strip leading backslash
     const start = t.span.start;
 
+    // \log_{base}{x} or \log{base}{x} → __log_base(x, base)
+    if ((name === 'log' || name === 'lg') && (this.checkIdentUnderscore() || this.check(TokenKind.LBrace))) {
+      let base: Expr | undefined;
+      if (this.checkIdentUnderscore()) {
+        this.advance(); // consume _
+        this.expect(TokenKind.LBrace);
+        base = this.parseExpr();
+        this.expect(TokenKind.RBrace);
+      } else {
+        // \log{base}{x} form
+        this.expect(TokenKind.LBrace);
+        base = this.parseExpr();
+        this.expect(TokenKind.RBrace);
+      }
+      this.expect(TokenKind.LBrace);
+      const x = this.parseExpr();
+      this.expect(TokenKind.RBrace);
+      const span = this.mkSpan(start, this.prev().span.end);
+      return { kind: 'FuncCallExpr', name: '__log_base', args: [x, base], span };
+    }
+
     if (this.check(TokenKind.LBrace)) {
       // LaTeX-style \sin{x}
       this.advance();
@@ -1085,6 +1106,11 @@ export class Parser {
 
   private check(kind: TokenKind): boolean {
     return this.peek().kind === kind;
+  }
+
+  private checkIdentUnderscore(): boolean {
+    const t = this.peek();
+    return t.kind === TokenKind.Identifier && t.value === '_';
   }
 
   private expect(kind: TokenKind): Token {
