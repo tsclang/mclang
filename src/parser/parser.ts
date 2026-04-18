@@ -975,12 +975,20 @@ export class Parser {
     }
 
     if (this.check(TokenKind.LBrace)) {
-      // LaTeX-style \sin{x}
+      // LaTeX two-brace form: \binom{n}{k}, \gcd{a}{b}, \lcm{a}{b}
+      const twoArgFns = new Set(['binom', 'gcd', 'lcm']);
       this.advance();
-      const arg = this.parseExpr();
+      const arg1 = this.parseExpr();
       this.expect(TokenKind.RBrace);
+      if (twoArgFns.has(name) && this.check(TokenKind.LBrace)) {
+        this.advance();
+        const arg2 = this.parseExpr();
+        this.expect(TokenKind.RBrace);
+        const span = this.mkSpan(start, this.prev().span.end);
+        return { kind: 'FuncCallExpr', name, args: [arg1, arg2], span };
+      }
       const span = this.mkSpan(start, this.prev().span.end);
-      return { kind: 'FuncCallExpr', name, args: [arg], span };
+      return { kind: 'FuncCallExpr', name, args: [arg1], span };
     }
 
     if (this.check(TokenKind.LParen)) {

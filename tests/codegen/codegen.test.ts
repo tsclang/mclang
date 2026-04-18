@@ -161,10 +161,11 @@ describe('Where block', () => {
 
   it('generates where def before body', () => {
     const { c } = compile('f(m, x) = E + 1\n    where\n        E = m * x\n');
+    // Find E def and then the return that follows it in the same function
     const ePos = c.indexOf('mc_num E = ');
-    const retPos = c.indexOf('return');
     expect(ePos).toBeGreaterThan(-1);
-    expect(ePos).toBeLessThan(retPos);
+    const retPos = c.indexOf('return', ePos);
+    expect(retPos).toBeGreaterThan(ePos);
   });
 });
 

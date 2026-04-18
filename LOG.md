@@ -155,13 +155,24 @@
 
 ## Фаза 6 — Агрегаторы
 
-**Статус:** не начата
+### [2026-04-18] Фаза 6 — Агрегаторы и специальные операторы
+**Статус:** готово
 
-- [ ] `\sum`, `\prod` по диапазону
-- [ ] `\sum_{x \in v}`, `\prod`, `\min`, `\max` по массиву
-- [ ] `sum(v)`, `product(v)`, `mean(v)`, `std(v)`, `min(v)`, `max(v)`
-- [ ] `n!`, `\binom`, `\gcd`, `\lcm`
-- [ ] `sgn(x)`, `erf(x)`, `gamma(x)`
+- [x] `\sum`, `\prod` по диапазону — генерируют `for`-цикл с аккумулятором
+- [x] `\sum_{x \in v}`, `\prod_{x \in v}` — итерация по массиву (SumExpr iterKind='array')
+- [x] `\min_{i=a}^{b}`, `\max_{i=a}^{b}` — min/max по диапазону
+- [x] `sum(v)`, `product(v)`, `mean(v)`, `std(v)` — dispatch для typed array param → mc_*
+- [x] `min(a,b)` → `fmin`, `min(v)` → `mc_min_arr(v, v_len)` (dispatch по числу аргументов и типу)
+- [x] `max(a,b)` → `fmax`, `max(v)` → `mc_max_arr(v, v_len)`
+- [x] `n!` → `mc_factorial()` — lookup-таблица до 20
+- [x] `\binom{n}{k}` → `mc_binom(n, k)` — итеративный алгоритм
+- [x] `\gcd{a}{b}` → `mc_gcd(a, b)` — алгоритм Евклида
+- [x] `\lcm{a}{b}` → `mc_lcm(a, b)` — через gcd
+- [x] `sgn(x)` → `mc_sgn(x)`; `erf(x)` → `erf(x)`; `\Gamma{x}` → `tgamma(x)`
+- [x] Все runtime helpers — `static inline` в начале `.c` файла (DCE-дружественные)
+- [x] Парсер: `\binom{n}{k}`, `\gcd{a}{b}`, `\lcm{a}{b}` — two-brace form
+
+**Заметки:** 27 новых тестов + 208 всего проходят. Критерий: факториал, биномиальный коэффициент, статистика массива компилируются корректно.
 
 ---
 

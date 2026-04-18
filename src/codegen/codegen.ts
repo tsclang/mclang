@@ -97,12 +97,7 @@ export class CGenerator {
   // Type environment for current function's params
   private typeEnv: Map<string, McType> = new Map();
 
-  // Flags for needed runtime helpers
-  private needDotHelper = false;
-  private needCrossHelper = false;
-  private needMatmulHelper = false;
-
-  // Counter for unique local array names
+  // Counter for unique local variable names
   private localArrCount = 0;
 
   constructor(ast: File) {
@@ -114,8 +109,8 @@ export class CGenerator {
     this.hLines = [];
 
     this.genHeader();
-    this.genFile();
     this.genRuntimeHelpers();
+    this.genFile();
 
     const guardName = '__MCLANG_OUT_H__';
     const hPrologue = [
@@ -167,27 +162,54 @@ export class CGenerator {
   }
 
   private genRuntimeHelpers(): void {
-    if (this.needDotHelper) {
-      this.emit('static inline mc_num mc_dot(const mc_num* a, const mc_num* b, int n) {');
-      this.emit('  mc_num s = 0.0; for (int i = 0; i < n; i++) s += a[i]*b[i]; return s;');
-      this.emit('}');
-      this.emit('');
-    }
-    if (this.needCrossHelper) {
-      this.emit('static void mc_cross(const mc_num* a, const mc_num* b, mc_num* out) {');
-      this.emit('  out[0]=a[1]*b[2]-a[2]*b[1]; out[1]=a[2]*b[0]-a[0]*b[2]; out[2]=a[0]*b[1]-a[1]*b[0];');
-      this.emit('}');
-      this.emit('');
-    }
-    if (this.needMatmulHelper) {
-      this.emit('static void mc_matmul(const mc_num* A, const mc_num* B, mc_num* C,');
-      this.emit('                      int rows, int inner, int cols) {');
-      this.emit('  for (int i=0;i<rows;i++) for (int j=0;j<cols;j++) {');
-      this.emit('    mc_num s=0.0; for (int k=0;k<inner;k++) s+=A[i*inner+k]*B[k*cols+j];');
-      this.emit('    C[i*cols+j]=s; }');
-      this.emit('}');
-      this.emit('');
-    }
+    // All helpers are static inline — compiler DCEs unused ones
+    const h = [
+      // Scalar helpers
+      'static inline mc_num mc_sgn(mc_num x) { return (x>0.0)?1.0:(x<0.0)?-1.0:0.0; }',
+      'static inline mc_num mc_gcd(mc_num a, mc_num b) {',
+      '  int ia=(int)fabs(a),ib=(int)fabs(b); while(ib){int t=ib;ib=ia%ib;ia=t;} return (mc_num)ia; }',
+      'static inline mc_num mc_lcm(mc_num a, mc_num b) {',
+      '  mc_num g=mc_gcd(a,b); return (g==0.0)?0.0:fabs(a*b)/g; }',
+      'static inline mc_num mc_binom(mc_num n, mc_num k) {',
+      '  int in=(int)n,ik=(int)k; if(ik<0||ik>in) return 0.0;',
+      '  if(ik>in-ik) ik=in-ik; mc_num r=1.0;',
+      '  for(int i=0;i<ik;i++) r=r*(in-i)/(i+1); return r; }',
+      'static inline mc_num mc_factorial(int n) {',
+      '  static const double _f[21]={1,1,2,6,24,120,720,5040,40320,362880,3628800,',
+      '    39916800,479001600,6227020800.0,87178291200.0,1307674368000.0,',
+      '    20922789888000.0,355687428096000.0,6402373705728000.0,',
+      '    121645100408832000.0,2432902008176640000.0};',
+      '  return (n>=0&&n<=20)?(mc_num)_f[n]:INFINITY; }',
+      // Array aggregators
+      'static inline mc_num mc_sum(const mc_num* v, int n) {',
+      '  mc_num s=0.0; for(int i=0;i<n;i++) s+=v[i]; return s; }',
+      'static inline mc_num mc_product(const mc_num* v, int n) {',
+      '  mc_num p=1.0; for(int i=0;i<n;i++) p*=v[i]; return p; }',
+      'static inline mc_num mc_mean(const mc_num* v, int n) {',
+      '  return n>0 ? mc_sum(v,n)/n : 0.0; }',
+      'static inline mc_num mc_std(const mc_num* v, int n) {',
+      '  if(n<=0) return 0.0; mc_num m=mc_mean(v,n),s=0.0;',
+      '  for(int i=0;i<n;i++) s+=(v[i]-m)*(v[i]-m); return sqrt(s/n); }',
+      'static inline mc_num mc_norm(const mc_num* v, int n) {',
+      '  mc_num s=0.0; for(int i=0;i<n;i++) s+=v[i]*v[i]; return sqrt(s); }',
+      'static inline mc_num mc_min_arr(const mc_num* v, int n) {',
+      '  if(n<=0) return NAN; mc_num m=v[0]; for(int i=1;i<n;i++) if(v[i]<m) m=v[i]; return m; }',
+      'static inline mc_num mc_max_arr(const mc_num* v, int n) {',
+      '  if(n<=0) return NAN; mc_num m=v[0]; for(int i=1;i<n;i++) if(v[i]>m) m=v[i]; return m; }',
+      // Vector helpers
+      'static inline mc_num mc_dot(const mc_num* a, const mc_num* b, int n) {',
+      '  mc_num s=0.0; for(int i=0;i<n;i++) s+=a[i]*b[i]; return s; }',
+      'static inline void mc_cross3(const mc_num* a, const mc_num* b, mc_num* out) {',
+      '  out[0]=a[1]*b[2]-a[2]*b[1]; out[1]=a[2]*b[0]-a[0]*b[2]; out[2]=a[0]*b[1]-a[1]*b[0]; }',
+      // Matrix multiply (writes to C — caller provides buffer)
+      'static inline void mc_matmul(const mc_num* A, const mc_num* B, mc_num* C,',
+      '    int rows, int inner, int cols) {',
+      '  for(int i=0;i<rows;i++) for(int j=0;j<cols;j++) {',
+      '    mc_num s=0.0; for(int k=0;k<inner;k++) s+=A[i*inner+k]*B[k*cols+j];',
+      '    C[i*cols+j]=s; } }',
+      '',
+    ];
+    for (const line of h) this.emit(line);
   }
 
   private genFile(): void {
@@ -522,14 +544,10 @@ export class CGenerator {
     const l = this.genExpr(expr.left);
     const r = this.genExpr(expr.right);
     if (isMatrixType(lTy) && isMatrixType(rTy)) {
-      // Matrix multiply — needs result buffer; not expressible inline
-      // Emit as function call stub — user must provide result buffer
-      this.needMatmulHelper = true;
       const lInfo = this.inferLenExpr(expr.left);
       return `/* matmul(${l}, ${r}, result, ${lInfo}) */0.0`;
     }
     if (isArrayType(lTy) && isArrayType(rTy)) {
-      this.needDotHelper = true;
       const len = this.inferLenExpr(expr.left);
       return `mc_dot(${l}, ${r}, ${len})`;
     }
@@ -537,10 +555,9 @@ export class CGenerator {
   }
 
   private genCross(expr: BinaryExpr): string {
-    this.needCrossHelper = true;
     const l = this.genExpr(expr.left);
     const r = this.genExpr(expr.right);
-    return `mc_cross(${l}, ${r})`;
+    return `mc_cross3(${l}, ${r})`;
   }
 
   private genUnary(expr: UnaryExpr): string {
@@ -560,9 +577,33 @@ export class CGenerator {
       const base = this.genExpr(expr.args[1]!);
       return `(log(${x}) / log(${base}))`;
     }
+
+    // min/max dispatch: 1 array arg → mc_min_arr / mc_max_arr; 2 scalar args → fmin/fmax
+    if ((expr.name === 'min' || expr.name === 'max') && expr.args.length === 1) {
+      const arg = expr.args[0]!;
+      const ty = this.inferType(arg);
+      if (isArrayType(ty)) {
+        const v = this.genExpr(arg);
+        const len = this.inferLenExpr(arg);
+        return `${expr.name === 'min' ? 'mc_min_arr' : 'mc_max_arr'}(${v}, ${len})`;
+      }
+    }
+
+    // Array aggregators: sum(v), product(v), mean(v), std(v), norm(v) with typed arg
+    const arrAgg = new Set(['sum', 'product', 'mean', 'std', 'norm']);
+    if (arrAgg.has(expr.name) && expr.args.length === 1) {
+      const arg = expr.args[0]!;
+      const ty = this.inferType(arg);
+      if (isArrayType(ty)) {
+        const v = this.genExpr(arg);
+        const len = this.inferLenExpr(arg);
+        const fn = expr.name === 'norm' ? 'mc_norm' : `mc_${expr.name}`;
+        return `${fn}(${v}, ${len})`;
+      }
+    }
+
     const args = expr.args.map(a => this.genExpr(a)).join(', ');
     const name = translit(expr.name);
-    // Map known function names to C math.h equivalents
     const mapped = FUNC_MAP.get(name) ?? name;
     return `${mapped}(${args})`;
   }
@@ -777,13 +818,14 @@ const FUNC_MAP: ReadonlyMap<string, string> = new Map([
   ['fabs',   'fabs'],  ['pow',    'pow'],   ['fmod',   'fmod'],
   ['fmin',   'fmin'],  ['fmax',   'fmax'],
   ['min',    'fmin'],  ['max',    'fmax'],
-  ['std',    'mc_std'],['mean',   'mc_mean'],
-  ['tgamma', 'tgamma'],['erf',   'erf'],
-  ['gcd',    'mc_gcd'],['lcm',   'mc_lcm'],
-  ['sgn',    'mc_sgn'],
+  ['std',    'mc_std'],  ['mean',   'mc_mean'],
+  ['tgamma', 'tgamma'],  ['erf',    'erf'],
+  ['gcd',    'mc_gcd'],  ['lcm',    'mc_lcm'],
+  ['sgn',    'mc_sgn'],  ['binom',  'mc_binom'],
   ['norm',   'mc_norm'],
-  ['dot',    'mc_dot'],['cross',  'mc_cross'],
-  ['sum',    'mc_sum'],['product','mc_product'],
+  ['dot',    'mc_dot'],  ['cross',  'mc_cross3'],
+  ['sum',    'mc_sum'],  ['product','mc_product'],
+  ['min',    'fmin'],    ['max',    'fmax'],
 ]);
 
 export function generateC(ast: File): CgenOutput {

@@ -71,10 +71,11 @@ describe('Dot product ⋅', () => {
     expect(c).toContain('static inline mc_num mc_dot(');
   });
 
-  it('scalar ⋅ scalar → multiply', () => {
+  it('scalar ⋅ scalar → multiply, not mc_dot call', () => {
     const { c } = compile('f(a, b) = a ⋅ b\n');
     expect(c).toContain('(a * b)');
-    expect(c).not.toContain('mc_dot');
+    // mc_dot exists as helper but should not be CALLED with a,b
+    expect(c).not.toContain('mc_dot(a, b');
   });
 });
 
