@@ -13,6 +13,7 @@ import type {
   AbsExpr, NormExpr, FloorExpr, CeilExpr, PmExpr, CasesExpr,
   SumExpr, PostfixExpr, ChainCmpExpr,
   LimExpr, DerivExpr, IntegralExpr, SolveExpr,
+  TableExpr, StringLitExpr,
 } from '../ast/nodes.js';
 
 export class Parser {
@@ -782,6 +783,17 @@ export class Parser {
       return this.parseArrayOrMatrix();
     }
 
+    // String literal
+    if (t.kind === TokenKind.StringLit) {
+      this.advance();
+      return { kind: 'StringLitExpr', value: t.value, span: t.span };
+    }
+
+    // table { ... }
+    if (t.kind === TokenKind.KwTable) {
+      return this.parseTable();
+    }
+
     throw unexpectedToken(t, 'expression');
   }
 
@@ -1273,6 +1285,28 @@ export class Parser {
     }
     const span = this.mkSpan(start, body.span.end);
     return { kind: 'SolveExpr', var: varName, lo, hi, body, span };
+  }
+
+  // ── Phase 8 — table ──────────────────────────────────────────────────────────
+
+  private parseTable(): TableExpr {
+    // table { key -> value, key -> value, ... }
+    const start = this.peek().span.start;
+    this.expect(TokenKind.KwTable);
+    this.expect(TokenKind.LBrace);
+    this.skipNewlines();
+    const pairs: Array<{ key: Expr; value: Expr }> = [];
+    while (!this.check(TokenKind.RBrace) && !this.check(TokenKind.EOF)) {
+      const key = this.parsePrimary(); // number or string literal
+      this.expect(TokenKind.Arrow);    // ->
+      const value = this.parseExpr();
+      pairs.push({ key, value });
+      if (this.check(TokenKind.Comma)) this.advance();
+      this.skipNewlines();
+    }
+    this.expect(TokenKind.RBrace);
+    const span = this.mkSpan(start, this.prev().span.end);
+    return { kind: 'TableExpr', pairs, span };
   }
 }
 

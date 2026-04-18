@@ -130,7 +130,9 @@ export type Expr =
   | LimExpr
   | DerivExpr
   | IntegralExpr
-  | SolveExpr;
+  | SolveExpr
+  | TableExpr
+  | StringLitExpr;
 
 export type NumberLit = { kind: 'NumberLit'; value: number; raw: string; span: Span };
 export type BoolLit   = { kind: 'BoolLit';   value: boolean; span: Span };
@@ -290,5 +292,17 @@ export type SolveExpr = {
   lo: Expr;
   hi: Expr;
   body: Expr;
+  span: Span;
+};
+
+export type StringLitExpr = {
+  kind: 'StringLitExpr';
+  value: string;
+  span: Span;
+};
+
+export type TableExpr = {
+  kind: 'TableExpr';
+  pairs: Array<{ key: Expr; value: Expr }>;
   span: Span;
 };

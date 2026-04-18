@@ -8,6 +8,7 @@ import type {
   AbsExpr, NormExpr, FloorExpr, CeilExpr,
   PmExpr, CasesExpr, SumExpr, PostfixExpr, ChainCmpExpr,
   LimExpr, DerivExpr, IntegralExpr, SolveExpr,
+  TableExpr, StringLitExpr,
   Param, McType,
 } from '../ast/nodes.js';
 
@@ -104,6 +105,9 @@ export class CGenerator {
   // Variable name overrides for derivative/limit generation
   private varOverride: Map<string, string> = new Map();
 
+  // Table registry: name → 'numeric' | 'string'
+  private tableKind: Map<string, 'numeric' | 'string'> = new Map();
+
   constructor(ast: File) {
     this.ast = ast;
   }
@@ -146,6 +150,7 @@ export class CGenerator {
     this.emit('#include <math.h>');
     this.emit('#include <stdint.h>');
     this.emit('#include <float.h>');
+    this.emit('#include <string.h>');
     this.emit('');
     this.emit('#ifdef MC_USE_FAST_FLOAT');
     this.emit('  typedef float mc_num;');
@@ -211,6 +216,12 @@ export class CGenerator {
       '  for(int i=0;i<rows;i++) for(int j=0;j<cols;j++) {',
       '    mc_num s=0.0; for(int k=0;k<inner;k++) s+=A[i*inner+k]*B[k*cols+j];',
       '    C[i*cols+j]=s; } }',
+      // Table interpolation (linear)
+      'static inline mc_num mc_interp(mc_num x, const mc_num* xs, const mc_num* ys, int n) {',
+      '  if(n<=0) return NAN; if(x<=xs[0]) return ys[0]; if(x>=xs[n-1]) return ys[n-1];',
+      '  for(int i=0;i<n-1;i++) if(x<=xs[i+1]) {',
+      '    mc_num t=(x-xs[i])/(xs[i+1]-xs[i]); return ys[i]+t*(ys[i+1]-ys[i]); }',
+      '  return ys[n-1]; }',
       '',
     ];
     for (const line of h) this.emit(line);
@@ -233,9 +244,43 @@ export class CGenerator {
   // ── Const def ───────────────────────────────────────────────────────────────
 
   private genConstDef(node: ConstDef): void {
+    if (node.value.kind === 'TableExpr') {
+      this.genTableDef(node.name, node.value as TableExpr);
+      return;
+    }
     const name = translit(node.name);
     const val = this.genExpr(node.value);
     this.emit(`static const mc_num ${name} = ${val};`);
+    this.emit('');
+  }
+
+  private genTableDef(name: string, expr: TableExpr): void {
+    const cname = translit(name);
+    const allString = expr.pairs.every(p => p.key.kind === 'StringLitExpr');
+
+    if (allString) {
+      // String-key table → C function with strcmp chain
+      this.tableKind.set(name, 'string');
+      this.emit(`static mc_num ${cname}(const char* _key) {`);
+      this.indent++;
+      for (const { key, value } of expr.pairs) {
+        const k = (key as StringLitExpr).value;
+        const v = this.genExpr(value);
+        this.emit(`if (strcmp(_key, "${k}") == 0) return ${v};`);
+      }
+      this.emit('return NAN;');
+      this.indent--;
+      this.emit('}');
+    } else {
+      // Numeric-key table → interp arrays
+      this.tableKind.set(name, 'numeric');
+      const n = expr.pairs.length;
+      const xs = expr.pairs.map(p => this.genExpr(p.key)).join(', ');
+      const ys = expr.pairs.map(p => this.genExpr(p.value)).join(', ');
+      this.emit(`static const mc_num _${cname}_xs[${n}] = {${xs}};`);
+      this.emit(`static const mc_num _${cname}_ys[${n}] = {${ys}};`);
+      this.emit(`static const int _${cname}_n = ${n};`);
+    }
     this.emit('');
   }
 
@@ -478,6 +523,8 @@ export class CGenerator {
       case 'DerivExpr':   return this.genDeriv(expr);
       case 'IntegralExpr':return this.genIntegral(expr);
       case 'SolveExpr':   return this.genSolve(expr);
+      case 'StringLitExpr': return `"${(expr as StringLitExpr).value}"`;
+      case 'TableExpr':   throw new Error('TableExpr must be a top-level const value');
       default:
         throw new Error(`Unknown expr kind: ${(expr as Expr).kind}`);
     }
@@ -580,6 +627,13 @@ export class CGenerator {
   }
 
   private genFuncCall(expr: FuncCallExpr): string {
+    // Numeric table lookup → mc_interp
+    if (this.tableKind.get(expr.name) === 'numeric' && expr.args.length === 1) {
+      const cname = translit(expr.name);
+      const x = this.genExpr(expr.args[0]!);
+      return `mc_interp(${x}, _${cname}_xs, _${cname}_ys, _${cname}_n)`;
+    }
+
     // \log_{base}{x} → log(x) / log(base)
     if (expr.name === '__log_base' && expr.args.length === 2) {
       const x = this.genExpr(expr.args[0]!);

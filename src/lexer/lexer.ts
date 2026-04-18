@@ -137,6 +137,12 @@ export class Lexer {
       return;
     }
 
+    // String literals "..." or '...'
+    if (c === '"' || c === "'") {
+      this.scanString(c);
+      return;
+    }
+
     // Numbers
     if (this.isDigit(c) || (c === '.' && this.isDigit(this.peek(1)))) {
       this.scanNumber();
@@ -325,6 +331,25 @@ export class Lexer {
     while (this.pos < this.source.length && this.current() !== '\n') {
       this.advance();
     }
+  }
+
+  private scanString(quote: string): void {
+    const start = this.capturePos();
+    this.advance(); // consume opening quote
+    let value = '';
+    while (this.pos < this.source.length && this.source[this.pos] !== quote) {
+      if (this.source[this.pos] === '\\') {
+        this.advance();
+        const esc = this.source[this.pos] ?? '';
+        value += esc === 'n' ? '\n' : esc === 't' ? '\t' : esc;
+      } else {
+        value += this.source[this.pos];
+      }
+      this.advance();
+    }
+    this.advance(); // consume closing quote
+    const end = this.capturePos();
+    this.tokens.push(token(TokenKind.StringLit, value, { start, end, file: this.file }));
   }
 
   private scanNumber(): void {

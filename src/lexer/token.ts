@@ -32,6 +32,9 @@ export const enum TokenKind {
   KwImport = 'import',
   KwFrom = 'from',
   KwAs = 'as',
+  KwTable = 'table',
+
+  StringLit = 'string_lit',
 
   // Arithmetic operators
   Plus = '+',
@@ -189,6 +192,7 @@ export const KEYWORDS: ReadonlyMap<string, TokenKind> = new Map([
   ['import',  TokenKind.KwImport],
   ['from',    TokenKind.KwFrom],
   ['as',      TokenKind.KwAs],
+  ['table',   TokenKind.KwTable],
 ]);
 
 // LaTeX commands → token kind
