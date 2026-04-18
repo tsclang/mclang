@@ -12,6 +12,7 @@ import type {
   ArrayLit, MatrixLit, FracExpr, SqrtExpr,
   AbsExpr, NormExpr, FloorExpr, CeilExpr, PmExpr, CasesExpr,
   SumExpr, PostfixExpr, ChainCmpExpr,
+  LimExpr, DerivExpr, IntegralExpr, SolveExpr,
 } from '../ast/nodes.js';
 
 export class Parser {
@@ -672,9 +673,19 @@ export class Parser {
       return this.parseCases();
     }
 
-    // \sum, \prod, ∑, ∏ (and \min, \max in sum-like context)
+    // \sum, \prod, ∑, ∏
     if (t.kind === TokenKind.Sum || t.kind === TokenKind.Prod) {
       return this.parseSumExpr(t.kind === TokenKind.Sum ? 'sum' : 'prod');
+    }
+
+    // \lim_{x \to a} body
+    if (t.kind === TokenKind.Lim) {
+      return this.parseLim();
+    }
+
+    // \int{lo}{hi} body d{var}  or  \int{lo}{hi}{var} body
+    if (t.kind === TokenKind.Int) {
+      return this.parseIntegral();
     }
 
     // \sigma{v} → std(v)
@@ -725,6 +736,11 @@ export class Parser {
       return this.parseIfExpr();
     }
 
+    // solve(var, lo, hi) { body }
+    if (t.kind === TokenKind.KwSolve) {
+      return this.parseSolve();
+    }
+
     // Identifiers and function calls
     if (t.kind === TokenKind.Identifier) {
       return this.parseIdentOrCall();
@@ -771,7 +787,7 @@ export class Parser {
 
   // ── LaTeX constructs ─────────────────────────────────────────────────────────
 
-  private parseFrac(): FracExpr {
+  private parseFrac(): FracExpr | DerivExpr {
     const start = this.peek().span.start;
     this.expect(TokenKind.Frac);
     this.expect(TokenKind.LBrace);
@@ -780,6 +796,18 @@ export class Parser {
     this.expect(TokenKind.LBrace);
     const den = this.parseExpr();
     this.expect(TokenKind.RBrace);
+
+    // \frac{d}{dx} expr → DerivExpr(var='x', body=expr)
+    if (
+      num.kind === 'IdentExpr' && num.name === 'd' &&
+      den.kind === 'IdentExpr' && den.name.length > 1 && den.name.startsWith('d')
+    ) {
+      const varName = den.name.slice(1); // 'dx' → 'x'
+      const body = this.parseExpr();
+      const span = this.mkSpan(start, body.span.end);
+      return { kind: 'DerivExpr', var: varName, body, span };
+    }
+
     const span = this.mkSpan(start, this.prev().span.end);
     return { kind: 'FracExpr', num, den, span };
   }
@@ -943,8 +971,7 @@ export class Parser {
       kind === TokenKind.Arcsin || kind === TokenKind.Arccos || kind === TokenKind.Arctan ||
       kind === TokenKind.Sinh || kind === TokenKind.Cosh || kind === TokenKind.Tanh ||
       kind === TokenKind.Log || kind === TokenKind.Lg || kind === TokenKind.Ln ||
-      kind === TokenKind.Gcd || kind === TokenKind.Lcm || kind === TokenKind.Binom ||
-      kind === TokenKind.KwSolve
+      kind === TokenKind.Gcd || kind === TokenKind.Lcm || kind === TokenKind.Binom
     );
   }
 
@@ -1136,6 +1163,116 @@ export class Parser {
 
   private skipNewlines(): void {
     while (this.check(TokenKind.Newline)) this.advance();
+  }
+
+  // ── Phase 7 — numerical constructs ──────────────────────────────────────────
+
+  private parseLim(): LimExpr {
+    // \lim_{x \to a} body  OR  \lim_{x \to \infty} body
+    const start = this.peek().span.start;
+    this.expect(TokenKind.Lim);
+    // Consume optional `_` identifier
+    if (this.checkIdentUnderscore()) this.advance();
+    this.expect(TokenKind.LBrace);
+    const varName = this.expectIdent();
+    this.expect(TokenKind.To); // \to
+    const isInfToken = () =>
+      this.check(TokenKind.Inf2) || this.check(TokenKind.KwInf) ||
+      (this.check(TokenKind.Identifier) && (this.peek().value === '∞' || this.peek().value === 'inf'));
+    const toInf = isInfToken();
+    let to: Expr;
+    if (toInf) {
+      const tInf = this.advance();
+      to = { kind: 'NumberLit', value: Infinity, raw: 'inf', span: tInf.span };
+    } else {
+      to = this.parseExpr();
+    }
+    this.expect(TokenKind.RBrace);
+    const body = this.parseExpr();
+    const span = this.mkSpan(start, body.span.end);
+    return { kind: 'LimExpr', var: varName, to, toInf, body, span };
+  }
+
+  private parseIntegral(): IntegralExpr {
+    // \int{lo}{hi} body dx   — 'dx' is an identifier: var name starts after 'd'
+    // OR  \int{lo}{hi}{var} body
+    const start = this.peek().span.start;
+    this.expect(TokenKind.Int);
+    // Optional subscript/superscript LaTeX form: skip _ and ^ brace groups
+    if (this.checkIdentUnderscore()) {
+      this.advance();
+      this.expect(TokenKind.LBrace);
+      // skip subscript content
+      let depth = 1;
+      while (depth > 0 && !this.check(TokenKind.EOF)) {
+        if (this.check(TokenKind.LBrace)) depth++;
+        else if (this.check(TokenKind.RBrace)) depth--;
+        if (depth > 0) this.advance();
+      }
+      this.expect(TokenKind.RBrace);
+      if (this.check(TokenKind.Caret)) {
+        this.advance();
+        this.expect(TokenKind.LBrace);
+        depth = 1;
+        while (depth > 0 && !this.check(TokenKind.EOF)) {
+          if (this.check(TokenKind.LBrace)) depth++;
+          else if (this.check(TokenKind.RBrace)) depth--;
+          if (depth > 0) this.advance();
+        }
+        this.expect(TokenKind.RBrace);
+      }
+    }
+    this.expect(TokenKind.LBrace);
+    const lo = this.parseExpr();
+    this.expect(TokenKind.RBrace);
+    this.expect(TokenKind.LBrace);
+    const hi = this.parseExpr();
+    this.expect(TokenKind.RBrace);
+    // Optional {var} brace — if not present, next ident starting with 'd' is the var
+    let varName = 'x';
+    if (this.check(TokenKind.LBrace)) {
+      this.advance();
+      varName = this.expectIdent();
+      this.expect(TokenKind.RBrace);
+      const body = this.parseExpr();
+      const span = this.mkSpan(start, body.span.end);
+      return { kind: 'IntegralExpr', var: varName, lo, hi, body, span };
+    }
+    const body = this.parseExpr();
+    // Consume trailing 'd{var}' identifier like 'dx', 'dt'
+    if (this.check(TokenKind.Identifier)) {
+      const dv = this.peek().value;
+      if (dv.length > 1 && dv.startsWith('d')) {
+        varName = dv.slice(1);
+        this.advance();
+      }
+    }
+    const span = this.mkSpan(start, body.span.end);
+    return { kind: 'IntegralExpr', var: varName, lo, hi, body, span };
+  }
+
+  private parseSolve(): SolveExpr {
+    // solve(var, lo, hi) { body }  — body should equal 0
+    const start = this.peek().span.start;
+    this.expect(TokenKind.KwSolve);
+    this.expect(TokenKind.LParen);
+    const varName = this.expectIdent();
+    this.expect(TokenKind.Comma);
+    const lo = this.parseExpr();
+    this.expect(TokenKind.Comma);
+    const hi = this.parseExpr();
+    this.expect(TokenKind.RParen);
+    // Body in braces or as a direct expression
+    let body: Expr;
+    if (this.check(TokenKind.LBrace)) {
+      this.advance();
+      body = this.parseExpr();
+      this.expect(TokenKind.RBrace);
+    } else {
+      body = this.parseExpr();
+    }
+    const span = this.mkSpan(start, body.span.end);
+    return { kind: 'SolveExpr', var: varName, lo, hi, body, span };
   }
 }
 

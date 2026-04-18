@@ -7,6 +7,7 @@ import type {
   ArrayLit, MatrixLit, FracExpr, SqrtExpr,
   AbsExpr, NormExpr, FloorExpr, CeilExpr,
   PmExpr, CasesExpr, SumExpr, PostfixExpr, ChainCmpExpr,
+  LimExpr, DerivExpr, IntegralExpr, SolveExpr,
   Param, McType,
 } from '../ast/nodes.js';
 
@@ -99,6 +100,9 @@ export class CGenerator {
 
   // Counter for unique local variable names
   private localArrCount = 0;
+
+  // Variable name overrides for derivative/limit generation
+  private varOverride: Map<string, string> = new Map();
 
   constructor(ast: File) {
     this.ast = ast;
@@ -470,6 +474,10 @@ export class CGenerator {
       case 'SumExpr':     return this.genSum(expr);
       case 'PostfixExpr': return this.genPostfix(expr);
       case 'ChainCmpExpr':return this.genChainCmp(expr);
+      case 'LimExpr':     return this.genLim(expr);
+      case 'DerivExpr':   return this.genDeriv(expr);
+      case 'IntegralExpr':return this.genIntegral(expr);
+      case 'SolveExpr':   return this.genSolve(expr);
       default:
         throw new Error(`Unknown expr kind: ${(expr as Expr).kind}`);
     }
@@ -484,10 +492,11 @@ export class CGenerator {
   }
 
   private genIdent(expr: IdentExpr): string {
-    const name = expr.name;
-    const builtin = BUILTIN_CONSTS.get(name);
+    const override = this.varOverride.get(expr.name);
+    if (override !== undefined) return override;
+    const builtin = BUILTIN_CONSTS.get(expr.name);
     if (builtin) return builtin;
-    return translit(name);
+    return translit(expr.name);
   }
 
   private inferType(expr: Expr): McType | undefined {
@@ -769,6 +778,74 @@ export class CGenerator {
     return `((${inner}) * (M_PI / 180.0))`;
   }
 
+  // ── Phase 7 — numerical methods ───────────────────────────────────────────────
+
+  private genLim(expr: LimExpr): string {
+    const n = this._tmpIdx++;
+    const acc = `_lim_${n}`;
+    const v = translit(expr.var);
+    const toVal = expr.toInf
+      ? '1e15'
+      : `(${this.genExpr(expr.to)}) + 1e-9`;
+    // Emit local variable block: { mc_num x = to; _lim = body; }
+    this.emit(`mc_num ${acc};`);
+    this.emit(`{ mc_num ${v} = ${toVal}; ${acc} = (${this.genExpr(expr.body)}); }`);
+    return acc;
+  }
+
+  private genDeriv(expr: DerivExpr): string {
+    const h = '1e-7';
+    const v = expr.var;
+    const cv = translit(v);
+    // Generate body with x → (x + h)
+    this.varOverride.set(v, `(${cv} + ${h})`);
+    const bodyH = this.genExpr(expr.body);
+    this.varOverride.delete(v);
+    const body0 = this.genExpr(expr.body);
+    return `((${bodyH}) - (${body0})) / ${h}`;
+  }
+
+  private genIntegral(expr: IntegralExpr): string {
+    const n = this._tmpIdx++;
+    const acc = `_int_${n}`;
+    const lo = this.genExpr(expr.lo);
+    const hi = this.genExpr(expr.hi);
+    const v = translit(expr.var);
+    // Emit loop — Simpson's rule, N=1000 steps
+    this.emit(`mc_num ${acc} = 0.0;`);
+    this.emit(`{ int _N${n}=1000; mc_num _h${n}=((${hi})-(${lo}))/_N${n};`);
+    this.emit(`  for(int _i${n}=0;_i${n}<=_N${n};_i${n}++){`);
+    this.emit(`    mc_num ${v}=(${lo})+_i${n}*_h${n};`);
+    this.emit(`    mc_num _w${n}=(_i${n}==0||_i${n}==_N${n})?1.0:(_i${n}%2==0)?2.0:4.0;`);
+    this.emit(`    ${acc}+=_w${n}*(${this.genExpr(expr.body)}); }`);
+    this.emit(`  ${acc}*=_h${n}/3.0; }`);
+    return acc;
+  }
+
+  private genSolve(expr: SolveExpr): string {
+    const n = this._tmpIdx++;
+    const res = `_sol_${n}`;
+    const v = expr.var;
+    const cv = translit(v);
+    const lo = this.genExpr(expr.lo);
+    const hi = this.genExpr(expr.hi);
+    // Generate body at lo for initial sign
+    this.varOverride.set(v, `_lo${n}`);
+    const bodyLo = this.genExpr(expr.body);
+    this.varOverride.delete(v);
+    // Generate body at midpoint (uses cv which is set inside loop)
+    const bodyMid = this.genExpr(expr.body);
+    this.emit(`mc_num ${res} = NAN;`);
+    this.emit(`{ mc_num _lo${n}=(${lo}),_hi${n}=(${hi}),_fl${n}=(${bodyLo});`);
+    this.emit(`  for(int _i${n}=0;_i${n}<100;_i${n}++){`);
+    this.emit(`    mc_num ${cv}=(_lo${n}+_hi${n})*0.5;`);
+    this.emit(`    mc_num _fm${n}=(${bodyMid});`);
+    this.emit(`    if(fabs(_fm${n})<1e-9){${res}=${cv};break;}`);
+    this.emit(`    if(_fl${n}*_fm${n}<0.0)_hi${n}=${cv};else{_lo${n}=${cv};_fl${n}=_fm${n};}}`);
+    this.emit(`  if(isnan(${res}))${res}=(_lo${n}+_hi${n})*0.5; }`);
+    return res;
+  }
+
   private genChainCmp(expr: ChainCmpExpr): string {
     // 0 < x < 10  →  ((0 < x) && (x < 10))
     const parts: string[] = [];
@@ -826,6 +903,8 @@ const FUNC_MAP: ReadonlyMap<string, string> = new Map([
   ['dot',    'mc_dot'],  ['cross',  'mc_cross3'],
   ['sum',    'mc_sum'],  ['product','mc_product'],
   ['min',    'fmin'],    ['max',    'fmax'],
+  ['is_nan',    'isnan'],  ['is_inf',    'isinf'],  ['is_finite', 'isfinite'],
+  ['atan2',  'atan2'],   ['hypot', 'hypot'],
 ]);
 
 export function generateC(ast: File): CgenOutput {

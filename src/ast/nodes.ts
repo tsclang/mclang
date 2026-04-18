@@ -126,7 +126,11 @@ export type Expr =
   | CasesExpr
   | SumExpr
   | PostfixExpr
-  | ChainCmpExpr;
+  | ChainCmpExpr
+  | LimExpr
+  | DerivExpr
+  | IntegralExpr
+  | SolveExpr;
 
 export type NumberLit = { kind: 'NumberLit'; value: number; raw: string; span: Span };
 export type BoolLit   = { kind: 'BoolLit';   value: boolean; span: Span };
@@ -252,5 +256,39 @@ export type ChainCmpExpr = {
   kind: 'ChainCmpExpr';
   parts: Expr[];
   ops: BinOp[];
+  span: Span;
+};
+
+export type LimExpr = {
+  kind: 'LimExpr';
+  var: string;
+  to: Expr;
+  toInf: boolean;
+  body: Expr;
+  span: Span;
+};
+
+export type DerivExpr = {
+  kind: 'DerivExpr';
+  var: string;
+  body: Expr;
+  span: Span;
+};
+
+export type IntegralExpr = {
+  kind: 'IntegralExpr';
+  var: string;
+  lo: Expr;
+  hi: Expr;
+  body: Expr;
+  span: Span;
+};
+
+export type SolveExpr = {
+  kind: 'SolveExpr';
+  var: string;
+  lo: Expr;
+  hi: Expr;
+  body: Expr;
   span: Span;
 };

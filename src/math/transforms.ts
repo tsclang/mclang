@@ -6,6 +6,7 @@ import type {
   IndexExpr, SliceExpr, MemberExpr,
   FracExpr, SqrtExpr, AbsExpr, NormExpr, FloorExpr, CeilExpr,
   PmExpr, CasesExpr, SumExpr, PostfixExpr, ChainCmpExpr,
+  LimExpr, DerivExpr, IntegralExpr, SolveExpr,
 } from '../ast/nodes.js';
 import { constantFold } from './const-fold.js';
 
@@ -184,6 +185,22 @@ function recurseExpr(expr: Expr): Expr {
       ...expr,
       rows: expr.rows.map(r => ({ ...r, elements: r.elements.map(transformExpr) })),
     };
+    case 'LimExpr': {
+      const l = expr as LimExpr;
+      return { ...l, to: transformExpr(l.to), body: transformExpr(l.body) };
+    }
+    case 'DerivExpr': {
+      const d = expr as DerivExpr;
+      return { ...d, body: transformExpr(d.body) };
+    }
+    case 'IntegralExpr': {
+      const i = expr as IntegralExpr;
+      return { ...i, lo: transformExpr(i.lo), hi: transformExpr(i.hi), body: transformExpr(i.body) };
+    }
+    case 'SolveExpr': {
+      const s = expr as SolveExpr;
+      return { ...s, lo: transformExpr(s.lo), hi: transformExpr(s.hi), body: transformExpr(s.body) };
+    }
     default: return expr;
   }
 }
