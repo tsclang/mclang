@@ -44,6 +44,7 @@ export const enum TokenKind {
   Percent = '%',
   Caret = '^',      // exponent (also x^n)
   StarStar = '**',  // exponent alternative
+  DotStar = '.*',  // element-wise multiply
 
   // Math operators (Unicode)
   Dot = '⋅',        // multiply / dot product / matrix multiply
@@ -66,6 +67,7 @@ export const enum TokenKind {
   And = '&&',
   Or = '||',
   Not = '!',        // unary
+  BangIn = '!in',   // range exclusion: x !in [a, b]
 
   // Assignment
   Assign = '=',

@@ -259,6 +259,38 @@ export class CGenerator {
       '  for(int i=0;i<rows;i++) for(int j=0;j<cols;j++) {',
       '    mc_num s=0.0; for(int k=0;k<inner;k++) s+=A[i*inner+k]*B[k*cols+j];',
       '    C[i*cols+j]=s; } }',
+      // Element-wise array operations (write to caller-provided buffer)
+      'static inline mc_num* mc_add_arr(const mc_num* a, const mc_num* b, mc_num* out, int n) {',
+      '  for(int i=0;i<n;i++) out[i]=a[i]+b[i]; return out; }',
+      'static inline mc_num* mc_sub_arr(const mc_num* a, const mc_num* b, mc_num* out, int n) {',
+      '  for(int i=0;i<n;i++) out[i]=a[i]-b[i]; return out; }',
+      'static inline mc_num* mc_mul_arr(const mc_num* a, const mc_num* b, mc_num* out, int n) {',
+      '  for(int i=0;i<n;i++) out[i]=a[i]*b[i]; return out; }',
+      'static inline mc_num* mc_scale(mc_num s, const mc_num* v, mc_num* out, int n) {',
+      '  for(int i=0;i<n;i++) out[i]=s*v[i]; return out; }',
+      // Matrix helpers
+      'static inline void mc_transpose(const mc_num* A, mc_num* B, int rows, int cols) {',
+      '  for(int i=0;i<rows;i++) for(int j=0;j<cols;j++) B[j*rows+i]=A[i*cols+j]; }',
+      'static inline mc_num mc_det3(const mc_num* m) {',
+      '  return m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]); }',
+      'static inline mc_num mc_det(const mc_num* m, int n) {',
+      '  if(n==1) return m[0]; if(n==2) return m[0]*m[3]-m[1]*m[2];',
+      '  if(n==3) return mc_det3(m); return NAN; }',
+      'static inline void mc_inv3(const mc_num* m, mc_num* out) {',
+      '  mc_num d=mc_det3(m); if(fabs(d)<1e-15){for(int i=0;i<9;i++)out[i]=NAN;return;}',
+      '  out[0]=(m[4]*m[8]-m[5]*m[7])/d; out[1]=(m[2]*m[7]-m[1]*m[8])/d; out[2]=(m[1]*m[5]-m[2]*m[4])/d;',
+      '  out[3]=(m[5]*m[6]-m[3]*m[8])/d; out[4]=(m[0]*m[8]-m[2]*m[6])/d; out[5]=(m[2]*m[3]-m[0]*m[5])/d;',
+      '  out[6]=(m[3]*m[7]-m[4]*m[6])/d; out[7]=(m[1]*m[6]-m[0]*m[7])/d; out[8]=(m[0]*m[4]-m[1]*m[3])/d; }',
+      'static inline mc_num* mc_inv(const mc_num* m, mc_num* out, int n) {',
+      '  if(n==3){mc_inv3(m,out);return out;} return out; }',
+      // Array generators
+      'static inline mc_num* mc_identity(mc_num* out, int n) {',
+      '  for(int i=0;i<n*n;i++) out[i]=0.0;',
+      '  for(int i=0;i<n;i++) out[i*n+i]=1.0; return out; }',
+      'static inline mc_num* mc_zeros(mc_num* out, int r, int c) {',
+      '  for(int i=0;i<r*c;i++) out[i]=0.0; return out; }',
+      'static inline mc_num* mc_ones(mc_num* out, int r, int c) {',
+      '  for(int i=0;i<r*c;i++) out[i]=1.0; return out; }',
       // Table interpolation (linear)
       'static inline mc_num mc_interp(mc_num x, const mc_num* xs, const mc_num* ys, int n) {',
       '  if(n<=0) return NAN; if(x<=xs[0]) return ys[0]; if(x>=xs[n-1]) return ys[n-1];',
@@ -385,9 +417,19 @@ export class CGenerator {
       const pName = translit(p.name);
       const ty = p.type;
       if (isMatrixType(ty)) {
-        parts.push(`mc_num* ${pName}`, `int ${pName}_rows`, `int ${pName}_cols`);
+        // num[R][C] — static size: no _rows/_cols implicit params
+        if (ty?.kind === 'NumType' && ty.staticSize !== undefined) {
+          parts.push(`mc_num* ${pName}`);
+        } else {
+          parts.push(`mc_num* ${pName}`, `int ${pName}_rows`, `int ${pName}_cols`);
+        }
       } else if (isArrayType(ty)) {
-        parts.push(`mc_num* ${pName}`, `int ${pName}_len`);
+        // num[N] — static size: no _len implicit param
+        if (ty?.kind === 'NumType' && ty.staticSize !== undefined) {
+          parts.push(`mc_num* ${pName}`);
+        } else {
+          parts.push(`mc_num* ${pName}`, `int ${pName}_len`);
+        }
       } else {
         parts.push(`${cType(ty)} ${pName}`);
       }
@@ -611,6 +653,27 @@ export class CGenerator {
   private genBinary(expr: BinaryExpr): string {
     if (expr.op === '⋅') return this.genDot(expr);
     if (expr.op === '⨯') return this.genCross(expr);
+    // Element-wise array ops
+    if (expr.op === '+' || expr.op === '-' || expr.op === '.*') {
+      const lTy = this.inferType(expr.left);
+      const rTy = this.inferType(expr.right);
+      if (isArrayType(lTy) && isArrayType(rTy)) {
+        return this.genElemWise(expr.op, expr.left, expr.right);
+      }
+    }
+    // scalar * array
+    if (expr.op === '*') {
+      const lTy = this.inferType(expr.left);
+      const rTy = this.inferType(expr.right);
+      if (!isArrayType(lTy) && isArrayType(rTy)) {
+        const s = this.genExpr(expr.left);
+        const v = this.genExpr(expr.right);
+        const len = this.inferLenExpr(expr.right);
+        const tmp = `_tmp_${this._tmpIdx++}`;
+        this.emit(`static mc_num ${tmp}[256];`);
+        return `mc_scale(${s}, ${v}, ${tmp}, ${len})`;
+      }
+    }
     const l = this.genExpr(expr.left);
     const r = this.genExpr(expr.right);
     switch (expr.op) {
@@ -663,6 +726,16 @@ export class CGenerator {
     return `mc_cross3(${l}, ${r})`;
   }
 
+  private genElemWise(op: string, left: Expr, right: Expr): string {
+    const l = this.genExpr(left);
+    const r = this.genExpr(right);
+    const len = this.inferLenExpr(left);
+    const tmp = `_tmp_${this._tmpIdx++}`;
+    this.emit(`static mc_num ${tmp}[256];`);
+    const fn = op === '+' ? 'mc_add_arr' : op === '-' ? 'mc_sub_arr' : 'mc_mul_arr';
+    return `${fn}(${l}, ${r}, ${tmp}, ${len})`;
+  }
+
   private genUnary(expr: UnaryExpr): string {
     const inner = this.genExpr(expr.operand);
     switch (expr.op) {
@@ -674,6 +747,52 @@ export class CGenerator {
   }
 
   private genFuncCall(expr: FuncCallExpr): string {
+    // Matrix functions
+    if (expr.name === 'transpose' && expr.args.length === 1) {
+      const arg = expr.args[0]!;
+      const m = this.genExpr(arg);
+      const info = this.inferLenExpr(arg); // rows, cols
+      const tmp = `_tmp_${this._tmpIdx++}`;
+      this.emit(`static mc_num ${tmp}[256];`);
+      return `(mc_transpose(${m}, ${tmp}, ${info}), ${tmp})`;
+    }
+    if (expr.name === 'det' && expr.args.length === 1) {
+      const arg = expr.args[0]!;
+      const m = this.genExpr(arg);
+      const ty = this.inferType(arg);
+      const n = ty?.kind === 'NumType' && ty.staticSize !== undefined ? String(ty.staticSize) : '3';
+      return `mc_det(${m}, ${n})`;
+    }
+    if (expr.name === 'inv' && expr.args.length === 1) {
+      const arg = expr.args[0]!;
+      const m = this.genExpr(arg);
+      const ty = this.inferType(arg);
+      const n = ty?.kind === 'NumType' && ty.staticSize !== undefined ? String(ty.staticSize) : '3';
+      const tmp = `_tmp_${this._tmpIdx++}`;
+      this.emit(`static mc_num ${tmp}[256];`);
+      return `mc_inv(${m}, ${tmp}, ${n})`;
+    }
+    if (expr.name === 'I' && expr.args.length === 1) {
+      const n = this.genExpr(expr.args[0]!);
+      const tmp = `_tmp_${this._tmpIdx++}`;
+      this.emit(`static mc_num ${tmp}[256];`);
+      return `mc_identity(${tmp}, (int)(${n}))`;
+    }
+    if (expr.name === 'zeros' && expr.args.length === 2) {
+      const r = this.genExpr(expr.args[0]!);
+      const c = this.genExpr(expr.args[1]!);
+      const tmp = `_tmp_${this._tmpIdx++}`;
+      this.emit(`static mc_num ${tmp}[256];`);
+      return `mc_zeros(${tmp}, (int)(${r}), (int)(${c}))`;
+    }
+    if (expr.name === 'ones' && expr.args.length === 2) {
+      const r = this.genExpr(expr.args[0]!);
+      const c = this.genExpr(expr.args[1]!);
+      const tmp = `_tmp_${this._tmpIdx++}`;
+      this.emit(`static mc_num ${tmp}[256];`);
+      return `mc_ones(${tmp}, (int)(${r}), (int)(${c}))`;
+    }
+
     // Numeric table lookup → mc_interp
     if (this.tableKind.get(expr.name) === 'numeric' && expr.args.length === 1) {
       const cname = translit(expr.name);
@@ -726,7 +845,7 @@ export class CGenerator {
   }
 
   private genIndex(expr: IndexExpr): string {
-    // m[i][j] → m[(int)(i)*m_cols+(int)(j)] for 2D arrays
+    // m[i][j] → m[(int)(i)*cols+(int)(j)] for 2D arrays
     if (expr.object.kind === 'IndexExpr') {
       const inner = expr.object;
       if (inner.object.kind === 'IdentExpr') {
@@ -736,7 +855,11 @@ export class CGenerator {
           const m = translit(name);
           const i = this.genExpr(inner.index);
           const j = this.genExpr(expr.index);
-          return `${m}[(int)(${i})*${m}_cols+(int)(${j})]`;
+          // Use static column count if known, otherwise runtime _cols
+          const cols = ty?.kind === 'NumType' && ty.staticSize !== undefined
+            ? String(ty.staticSize)
+            : `${m}_cols`;
+          return `${m}[(int)(${i})*${cols}+(int)(${j})]`;
         }
       }
     }
@@ -757,10 +880,21 @@ export class CGenerator {
 
   private genMember(expr: MemberExpr): string {
     if (expr.object.kind === 'IdentExpr') {
-      const obj = translit(expr.object.name);
+      const name = expr.object.name;
+      const obj = translit(name);
+      const ty = this.typeEnv.get(name);
       switch (expr.member) {
-        case 'length': return `${obj}_len`;
-        case 'rows':   return `${obj}_rows`;
+        case 'length':
+          // Static size known at compile time
+          if (ty?.kind === 'NumType' && ty.staticSize !== undefined && ty.dims === 1) {
+            return String(ty.staticSize);
+          }
+          return `${obj}_len`;
+        case 'rows':
+          if (ty?.kind === 'NumType' && ty.staticSize !== undefined && ty.dims >= 2) {
+            return String(ty.staticSize);
+          }
+          return `${obj}_rows`;
         case 'cols':   return `${obj}_cols`;
       }
     }

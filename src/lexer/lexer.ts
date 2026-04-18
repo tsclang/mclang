@@ -162,18 +162,21 @@ export class Lexer {
     }
 
     // Period: member access `.` (only when not `..`)
-    if (c === '.' && this.peek(1) !== '.') {
-      this.pushTokenAt(TokenKind.Period, '.', 1);
-      return;
-    }
-
     // Multi-char operators
     if (c === '*' && this.peek(1) === '*') {
       this.pushTokenAt(TokenKind.StarStar, '**', 2);
       return;
     }
+    if (c === '.' && this.peek(1) === '*') {
+      this.pushTokenAt(TokenKind.DotStar, '.*', 2);
+      return;
+    }
     if (c === '.' && this.peek(1) === '.') {
       this.pushTokenAt(TokenKind.Dot2, '..', 2);
+      return;
+    }
+    if (c === '.' && this.peek(1) !== '.') {
+      this.pushTokenAt(TokenKind.Period, '.', 1);
       return;
     }
     if (c === '-' && this.peek(1) === '>') {
@@ -200,6 +203,11 @@ export class Lexer {
       this.pushTokenAt(TokenKind.Geq, '>=', 2);
       return;
     }
+    // <> alias for !=
+    if (c === '<' && this.peek(1) === '>') {
+      this.pushTokenAt(TokenKind.Neq, '<>', 2);
+      return;
+    }
     if (c === '&' && this.peek(1) === '&') {
       this.pushTokenAt(TokenKind.And, '&&', 2);
       return;
@@ -217,7 +225,14 @@ export class Lexer {
 
     // Postfix `!` (factorial) vs `!=` handled above
     // If we reach here and prev was a value token, it's FACTORIAL
+    // Exception: `!in` is a range-exclusion operator
     if (c === '!') {
+      const next2 = this.source.slice(this.pos + 1, this.pos + 3);
+      const c3 = this.source[this.pos + 3] ?? '';
+      if (next2 === 'in' && !/[a-zA-Z0-9_]/.test(c3)) {
+        this.pushTokenAt(TokenKind.BangIn, '!in', 3);
+        return;
+      }
       if (this.lastTokenKind !== null && VALUE_TOKENS.has(this.lastTokenKind)) {
         this.pushTokenAt(TokenKind.Factorial, '!', 1);
       } else {
@@ -562,6 +577,11 @@ export class Lexer {
       case '°': return TokenKind.Degree;
       case '∑': return TokenKind.Sum;
       case '∏': return TokenKind.Prod;
+      // Unicode logical operators
+      case '∧': return TokenKind.And;    // logical AND → &&
+      case '∨': return TokenKind.Or;     // logical OR  → ||
+      case '⊕': return TokenKind.KwXor;  // logical XOR → xor
+      case '¬': return TokenKind.KwNot;  // logical NOT → !
       default: return null;
     }
   }

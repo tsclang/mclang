@@ -397,7 +397,24 @@ export class Parser {
 
   private parseInExpr(): Expr {
     const left = this.parseCmpExpr();
-    if (this.check(TokenKind.In2) || this.check(TokenKind.KwIn)) {
+
+    // Range membership: x in [a, b] or x in (a, b)
+    if (this.check(TokenKind.KwIn)) {
+      const next = this.peekAt(1).kind;
+      if (next === TokenKind.LBracket || next === TokenKind.LParen) {
+        return this.parseRangeMembership(left, false);
+      }
+      this.advance();
+      const right = this.parseCmpExpr();
+      return this.mkBinary('∈', left, right, left.span.start);
+    }
+
+    // Negated range: x !in [a, b]
+    if (this.check(TokenKind.BangIn)) {
+      return this.parseRangeMembership(left, true);
+    }
+
+    if (this.check(TokenKind.In2)) {
       this.advance();
       const right = this.parseCmpExpr();
       return this.mkBinary('∈', left, right, left.span.start);
@@ -408,6 +425,30 @@ export class Parser {
       return this.mkBinary('∉', left, right, left.span.start);
     }
     return left;
+  }
+
+  private parseRangeMembership(left: Expr, negate: boolean): Expr {
+    this.advance(); // consume `in` or `!in`
+    const closed = this.check(TokenKind.LBracket); // [ = closed end, ( = open end
+    const closeToken = closed ? TokenKind.RBracket : TokenKind.RParen;
+    const loOp: BinOp = closed ? '>=' : '>';
+    const hiOp: BinOp = closed ? '<=' : '<';
+
+    this.advance(); // consume `[` or `(`
+    const lo = this.parseExpr();
+    this.expect(TokenKind.Comma);
+    const hi = this.parseExpr();
+    this.expect(closeToken);
+
+    const span = this.mkSpan(left.span.start, this.prev().span.end);
+    const loCmp = this.mkBinary(loOp, left, lo, left.span.start);
+    const hiCmp = this.mkBinary(hiOp, left, hi, left.span.start);
+    const combined: Expr = this.mkBinary('&&', loCmp, hiCmp, left.span.start);
+
+    if (negate) {
+      return { kind: 'UnaryExpr', op: '!', operand: combined, span };
+    }
+    return { ...combined, span };
   }
 
   private parseCmpExpr(): Expr {
@@ -490,7 +531,7 @@ export class Parser {
   private isMulOp(): boolean {
     const k = this.peek().kind;
     return (
-      k === TokenKind.Star || k === TokenKind.Dot ||
+      k === TokenKind.Star || k === TokenKind.Dot || k === TokenKind.DotStar ||
       k === TokenKind.Slash || k === TokenKind.Divide ||
       k === TokenKind.Percent || k === TokenKind.KwMod
     );
@@ -498,13 +539,14 @@ export class Parser {
 
   private mulOpKind(kind: TokenKind): BinOp {
     switch (kind) {
-      case TokenKind.Star:   return '*';
-      case TokenKind.Dot:    return '⋅';
-      case TokenKind.Slash:  return '/';
-      case TokenKind.Divide: return '÷';
+      case TokenKind.Star:    return '*';
+      case TokenKind.DotStar: return '.*';
+      case TokenKind.Dot:     return '⋅';
+      case TokenKind.Slash:   return '/';
+      case TokenKind.Divide:  return '÷';
       case TokenKind.Percent:
-      case TokenKind.KwMod:  return '%';
-      default:               return '*';
+      case TokenKind.KwMod:   return '%';
+      default:                return '*';
     }
   }
 

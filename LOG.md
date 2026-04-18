@@ -233,3 +233,41 @@
 - [x] CLI флаги: `--target`, `--precision`, `--out`, `--tokens`, `--explain`, `--no-color`
 
 **Заметки:** 17 новых тестов + 262 всего проходят. CLI записывает `basename.c` + `basename.h` рядом с источником (или в `--out`). Shared-таргет дополнительно генерирует Python ctypes-заглушку.
+
+---
+
+## MVP — остаток (не вошло в фазы 1–9)
+
+**Статус:** не начато
+
+Пункты из MVP.md, заявленные как часть MVP, но ещё не реализованные.
+
+### [2026-04-19] MVP — остаток
+**Статус:** готово
+
+#### Синтаксис
+
+- [x] `num[N]` — параметр статического размера: нет неявных `_len`/`_rows`/`_cols`, `.length` → константа
+- [x] `num[N][M]` — 2D: `m[i][j]` → `m[i*N+j]` со статической шириной
+- [ ] Продолжение строки через открытую скобку / завершающий оператор (ASI) — отложено
+
+#### Операторы
+
+- [x] `<>` — алиас `!=` (лексер, два символа)
+- [x] `∧` → `&&`, `∨` → `||`, `⊕` → `xor`, `¬` → `!` (Unicode в `scanUnicode`)
+- [x] `x in [a, b]` → `x >= a && x <= b` (закрытый диапазон)
+- [x] `x in (a, b)` → `x > a && x < b` (открытый диапазон)
+- [x] `x !in [a, b]` → `!(x >= a && x <= b)` (токен `BangIn`)
+- [x] `.*` — Hadamard-произведение как оператор (токен `DotStar`)
+
+#### Векторы и матрицы
+
+- [x] `a + b`, `a - b` для `num[]` параметров → `mc_add_arr` / `mc_sub_arr`
+- [x] `a .* b` → `mc_mul_arr` (поэлементное)
+- [x] `scalar * array` → `mc_scale`
+- [x] `transpose(m)` → `mc_transpose` runtime helper
+- [x] `det(m)` → `mc_det` (1×1, 2×2, 3×3)
+- [x] `inv(m)` → `mc_inv` (3×3 через аналитическую формулу)
+- [x] `I(n)` → `mc_identity`, `zeros(r,c)` → `mc_zeros`, `ones(r,c)` → `mc_ones`
+
+**Заметки:** 48 новых тестов + 310 всего проходят. Изменения в `lexer.ts` (DotStar, BangIn, `∧∨⊕¬`, `<>`), `token.ts`, `parser.ts` (`parseRangeMembership`, `DotStar` в `isMulOp`), `codegen.ts` (genElemWise, genFuncCall матричные функции, staticSize в buildParamList/genIndex/genMember).
