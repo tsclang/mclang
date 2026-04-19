@@ -8,7 +8,7 @@ import type {
   Stmt, AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
   WhereBlock, WhereLine,
   Expr, NumberLit, BoolLit, IdentExpr, BinaryExpr, BinOp, UnaryExpr,
-  FuncCallExpr, QualifiedCallExpr, IfExpr, IndexExpr, SliceExpr, MemberExpr,
+  FuncCallExpr, QualifiedCallExpr, IfExpr, IndexExpr, SliceExpr, MatrixSlice, MemberExpr,
   ArrayLit, MatrixLit, FracExpr, SqrtExpr,
   AbsExpr, NormExpr, FloorExpr, CeilExpr, PmExpr, CasesExpr,
   SumExpr, PostfixExpr, ChainCmpExpr,
@@ -678,9 +678,19 @@ export class Parser {
       }
       if (this.check(TokenKind.LBracket)) {
         this.advance();
-        // Slice: v[lo..hi] or v[:]
+        // Matrix slice: m[:, j] or m[i, :]
         if (this.check(TokenKind.Colon)) {
           this.advance();
+          if (this.check(TokenKind.Comma)) {
+            // m[:, j] — column slice
+            this.advance();
+            const colIdx = this.parseExpr();
+            this.expect(TokenKind.RBracket);
+            const span = this.mkSpan(expr.span.start, this.prev().span.end);
+            expr = { kind: 'MatrixSlice', object: expr, rowAll: true, colAll: false, colIdx, span } as MatrixSlice;
+            continue;
+          }
+          // 1D slice: v[:] or v[:hi]
           const hi = this.check(TokenKind.RBracket) ? undefined : this.parseExpr();
           this.expect(TokenKind.RBracket);
           const span = this.mkSpan(expr.span.start, this.prev().span.end);
@@ -688,6 +698,15 @@ export class Parser {
           continue;
         }
         const idx = this.parseExpr();
+        if (this.check(TokenKind.Comma)) {
+          // m[i, :] — row slice
+          this.advance();
+          this.expect(TokenKind.Colon);
+          this.expect(TokenKind.RBracket);
+          const span = this.mkSpan(expr.span.start, this.prev().span.end);
+          expr = { kind: 'MatrixSlice', object: expr, rowAll: false, rowIdx: idx, colAll: true, span } as MatrixSlice;
+          continue;
+        }
         if (this.check(TokenKind.Dot2)) {
           this.advance();
           const hi = this.check(TokenKind.RBracket) ? undefined : this.parseExpr();

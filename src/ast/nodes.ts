@@ -115,6 +115,7 @@ export type Expr =
   | IfExpr
   | IndexExpr
   | SliceExpr
+  | MatrixSlice
   | MemberExpr
   | ArrayLit
   | MatrixLit
@@ -196,6 +197,18 @@ export type SliceExpr = {
   object: Expr;
   lo?: Expr;
   hi?: Expr;
+  span: Span;
+};
+
+// m[:, j] — column slice (rowAll=true, colIdx=j)
+// m[i, :] — row slice (rowIdx=i, colAll=true)
+export type MatrixSlice = {
+  kind: 'MatrixSlice';
+  object: Expr;
+  rowAll: boolean;
+  rowIdx?: Expr;
+  colAll: boolean;
+  colIdx?: Expr;
   span: Span;
 };
 

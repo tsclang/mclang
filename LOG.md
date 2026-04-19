@@ -141,6 +141,8 @@
 - [x] Индексация `v[i]` → `v[(int)(i)]`
 - [x] 2D-индексация `m[i][j]` → `m[(int)(i)*m_cols+(int)(j)]` (с TypeEnv)
 - [x] Срез `v[a..b]` → `v + (int)(a)` (pointer offset)
+- [x] Срез матрицы `m[:, j]` → temp-массив из столбца j (цикл по строкам)
+- [x] Срез матрицы `m[i, :]` → указатель `m + i*cols` (строка i contiguous)
 - [x] Dispatch `⋅` по типу: `num[]` → `mc_dot(v,w,len)`, scalar → `*`
 - [x] Произведение `⨯` → `mc_cross()` runtime helper
 - [x] `norm(v)` / `‖v‖` → `mc_norm(v, v_len)`
@@ -359,3 +361,18 @@
 - [x] 8 тестов — факториал, Фибоначчи, even/odd, приватная рекурсия
 
 **Заметки:** `genFile` теперь: сначала все прототипы, потом все тела. Реализовано в `src/codegen/codegen.ts`. Заголовок (`.h`) не меняется.
+
+---
+
+### [2026-04-19] Срезы матриц — `m[:, j]` и `m[i, :]`
+**Статус:** готово
+
+- [x] AST-узел `MatrixSlice` (`rowAll`, `colAll`, `rowIdx`, `colIdx`)
+- [x] Парсер: `m[:, j]` → `MatrixSlice{rowAll:true, colIdx:j}`
+- [x] Парсер: `m[i, :]` → `MatrixSlice{rowIdx:i, colAll:true}`
+- [x] Codegen `m[:, j]` → `mc_num _col_N[256]; for (...) _col_N[i] = m[i*cols+j];`
+- [x] Codegen `m[i, :]` → `(m + (int)(i)*m_cols)` (pointer to row)
+- [x] `recurseExpr` в `transforms.ts` обновлён для `MatrixSlice`
+- [x] 9 тестов в `tests/codegen/matrix-slice.test.ts`
+
+**Заметки:** MVP полностью завершён. 424 теста, 20 файлов — все зелёные.

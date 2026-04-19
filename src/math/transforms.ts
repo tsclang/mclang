@@ -3,7 +3,7 @@ import type {
   Stmt, AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
   WhereBlock, WhereLine, Param,
   Expr, BinaryExpr, UnaryExpr, FuncCallExpr, IfExpr,
-  IndexExpr, SliceExpr, MemberExpr,
+  IndexExpr, SliceExpr, MatrixSlice, MemberExpr,
   FracExpr, SqrtExpr, AbsExpr, NormExpr, FloorExpr, CeilExpr,
   PmExpr, CasesExpr, SumExpr, PostfixExpr, ChainCmpExpr,
   LimExpr, DerivExpr, IntegralExpr, SolveExpr,
@@ -131,6 +131,15 @@ function recurseExpr(expr: Expr): Expr {
         object: transformExpr(sl.object),
         lo: sl.lo ? transformExpr(sl.lo) : undefined,
         hi: sl.hi ? transformExpr(sl.hi) : undefined,
+      };
+    }
+    case 'MatrixSlice': {
+      const ms = expr as MatrixSlice;
+      return {
+        ...ms,
+        object: transformExpr(ms.object),
+        rowIdx: ms.rowIdx ? transformExpr(ms.rowIdx) : undefined,
+        colIdx: ms.colIdx ? transformExpr(ms.colIdx) : undefined,
       };
     }
     case 'MemberExpr': {

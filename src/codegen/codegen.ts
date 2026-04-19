@@ -3,7 +3,7 @@ import type {
   Stmt, AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
   WhereBlock, WhereLine,
   Expr, NumberLit, BoolLit, IdentExpr, BinaryExpr, UnaryExpr,
-  FuncCallExpr, QualifiedCallExpr, IfExpr, IndexExpr, SliceExpr, MemberExpr,
+  FuncCallExpr, QualifiedCallExpr, IfExpr, IndexExpr, SliceExpr, MatrixSlice, MemberExpr,
   ArrayLit, MatrixLit, FracExpr, SqrtExpr,
   AbsExpr, NormExpr, FloorExpr, CeilExpr,
   PmExpr, CasesExpr, SumExpr, PostfixExpr, ChainCmpExpr,
@@ -662,8 +662,9 @@ export class CGenerator {
       case 'QualifiedCallExpr':return this.genQualifiedCall(expr as QualifiedCallExpr);
       case 'IfExpr':      return this.genIfExpr(expr);
       case 'IndexExpr':   return this.genIndex(expr);
-      case 'SliceExpr':   return this.genSlice(expr);
-      case 'MemberExpr':  return this.genMember(expr);
+      case 'SliceExpr':    return this.genSlice(expr);
+      case 'MatrixSlice':  return this.genMatrixSlice(expr as MatrixSlice);
+      case 'MemberExpr':   return this.genMember(expr);
       case 'ArrayLit':    return this.genArrayLit(expr);
       case 'MatrixLit':   return this.genMatrixLit(expr);
       case 'FracExpr':    return this.genFrac(expr);
@@ -951,6 +952,31 @@ export class CGenerator {
       const lo = this.genExpr(expr.lo);
       return `(${obj} + (int)(${lo}))`;
     }
+    return obj;
+  }
+
+  private genMatrixSlice(expr: MatrixSlice): string {
+    const obj = this.genExpr(expr.object);
+    // Derive _rows / _cols names from the object identifier if possible
+    const baseName = expr.object.kind === 'IdentExpr' ? translit(expr.object.name) : obj;
+    const rows = `${baseName}_rows`;
+    const cols = `${baseName}_cols`;
+
+    if (expr.rowAll && !expr.colAll && expr.colIdx !== undefined) {
+      // m[:, j] — extract column j into a temp array
+      const j = this.genExpr(expr.colIdx);
+      const tmp = `_col_${this._tmpIdx++}`;
+      this.emit(`mc_num ${tmp}[256];`);
+      const i = `_i_${this._tmpIdx++}`;
+      this.emit(`for (int ${i} = 0; ${i} < ${rows}; ${i}++) ${tmp}[${i}] = ${obj}[(int)(${i})*${cols}+(int)(${j})];`);
+      return tmp;
+    }
+    if (!expr.rowAll && expr.colAll && expr.rowIdx !== undefined) {
+      // m[i, :] — row i is contiguous; return pointer to start of row
+      const ri = this.genExpr(expr.rowIdx);
+      return `(${obj} + (int)(${ri})*${cols})`;
+    }
+    // fallback: return object as-is
     return obj;
   }
 
