@@ -8,7 +8,7 @@ import type {
   Stmt, AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
   WhereBlock, WhereLine,
   Expr, NumberLit, BoolLit, IdentExpr, BinaryExpr, BinOp, UnaryExpr,
-  FuncCallExpr, IfExpr, IndexExpr, SliceExpr, MemberExpr,
+  FuncCallExpr, QualifiedCallExpr, IfExpr, IndexExpr, SliceExpr, MemberExpr,
   ArrayLit, MatrixLit, FracExpr, SqrtExpr,
   AbsExpr, NormExpr, FloorExpr, CeilExpr, PmExpr, CasesExpr,
   SumExpr, PostfixExpr, ChainCmpExpr,
@@ -65,28 +65,39 @@ export class Parser {
 
   private parseImport(): ImportDef {
     const start = this.peek().span.start;
-    // import "path" [as alias]
-    // from "path" import name [as alias]
-    this.advance(); // consume import/from
+    const isFrom = this.check(TokenKind.KwFrom);
+    this.advance(); // consume 'import' or 'from'
+
+    // Accept string literal or bare identifier as path
     const pathTok = this.peek();
-    // path is a string literal — treated as an identifier in our lexer
-    // Actually it would be lexed as an Identifier or a string.
-    // For simplicity accept any token value here.
-    if (pathTok.kind !== TokenKind.Identifier) {
+    if (pathTok.kind !== TokenKind.Identifier && pathTok.kind !== TokenKind.StringLit) {
       throw unexpectedToken(pathTok, 'import path');
     }
     const path = pathTok.value;
     this.advance();
 
     let alias: string | undefined;
-    if (this.check(TokenKind.KwAs)) {
-      this.advance();
-      alias = this.expectIdent();
+    let names: string[] | undefined;
+
+    if (isFrom) {
+      // from "./file.mc" import name [, name2]
+      this.expect(TokenKind.KwImport);
+      names = [this.expectIdent()];
+      while (this.check(TokenKind.Comma)) {
+        this.advance();
+        names.push(this.expectIdent());
+      }
+    } else {
+      // import "./file.mc" [as alias]
+      if (this.check(TokenKind.KwAs)) {
+        this.advance();
+        alias = this.expectIdent();
+      }
     }
 
     this.skipNewlines();
     const end = this.prev().span.end;
-    return { kind: 'ImportDef', path, alias, span: this.mkSpan(start, end) };
+    return { kind: 'ImportDef', path, alias, names, span: this.mkSpan(start, end) };
   }
 
   private parseConstDef(): ConstDef {
@@ -631,8 +642,21 @@ export class Parser {
       if (this.check(TokenKind.Period)) {
         this.advance();
         const member = this.expectIdent();
-        const span = this.mkSpan(expr.span.start, this.prev().span.end);
-        expr = { kind: 'MemberExpr', object: expr, member, span };
+        // alias.func(args) → QualifiedCallExpr; alias.field → MemberExpr
+        if (this.check(TokenKind.LParen) && expr.kind === 'IdentExpr') {
+          this.advance(); // consume (
+          const args: Expr[] = [];
+          if (!this.check(TokenKind.RParen)) {
+            args.push(this.parseExpr());
+            while (this.check(TokenKind.Comma)) { this.advance(); args.push(this.parseExpr()); }
+          }
+          this.expect(TokenKind.RParen);
+          const span = this.mkSpan(expr.span.start, this.prev().span.end);
+          expr = { kind: 'QualifiedCallExpr', ns: expr.name, name: member, args, span };
+        } else {
+          const span = this.mkSpan(expr.span.start, this.prev().span.end);
+          expr = { kind: 'MemberExpr', object: expr, member, span };
+        }
         continue;
       }
       break;

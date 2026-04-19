@@ -189,6 +189,11 @@ function checkExpr(
     case 'FuncCallExpr':
       checkFuncCall(expr, params, funcSigs, errors);
       break;
+    case 'QualifiedCallExpr':
+      for (const arg of (expr as import('../ast/nodes.js').QualifiedCallExpr).args) {
+        checkExpr(arg, params, funcSigs, errors);
+      }
+      break;
     case 'BinaryExpr':
       checkExpr(expr.left, params, funcSigs, errors);
       checkExpr(expr.right, params, funcSigs, errors);

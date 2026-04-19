@@ -287,6 +287,33 @@
 
 ---
 
+## Импорты
+
+### [2026-04-19] Система импортов
+**Статус:** готово
+
+- [x] `import "./file.mc"` — полный импорт всех публичных определений
+- [x] `from "./file.mc" import name [, name2]` — именованный импорт (статическая DCE)
+- [x] `import "./file.mc" as alias` — алиас; функции переименуются в `alias__name`
+- [x] `alias.func(x)` → `QualifiedCallExpr { ns, name, args }` (новый AST-узел)
+- [x] Кодоген: `QualifiedCallExpr` → `alias__func(args)` (мангл через `__`)
+- [x] Inline expansion: все импорты сливаются в один AST до кодогена
+- [x] Dependency graph + топологическая сортировка (dep-before-entry)
+- [x] Кэш (`included` Set): diamond-зависимость включается ровно один раз
+- [x] Cycle detection: `ImportCycleError` с цепочкой цикла
+- [x] `ImportNotFoundError` при отсутствии файла
+- [x] Приватные функции (`_`) не импортируются
+- [x] `readFile: (absPath) => string` — абстракция I/O для тестируемости без диска
+- [x] Parser: `from "path" import a, b` — именованный список
+- [x] Parser: `import "path"` принимает и `StringLit`, и `Identifier` как путь
+- [x] POSIX-пути в резолвере (`path.posix`) — кроссплатформенность
+- [x] 23 теста — все сценарии + error cases + codegen integration
+- [x] SPEC.md §15.1 обновлена
+
+**Заметки:** Реализовано в `src/import/resolver.ts`. `QualifiedCallExpr` добавлен в `ast/nodes.ts`, `parser.ts`, `codegen.ts`, `math/transforms.ts`, `types/checker.ts`. Стратегия: inline expansion — единственный правильный выбор для embedded-платформ.
+
+---
+
 ## Типизатор
 
 ### [2026-04-19] Типизатор — базовая проверка типов

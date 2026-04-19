@@ -36,7 +36,8 @@ export type FuncDef = {
 export type ImportDef = {
   kind: 'ImportDef';
   path: string;
-  alias?: string;
+  alias?: string;   // import "./f.mc" as alias
+  names?: string[]; // from "./f.mc" import a, b, c
   span: Span;
 };
 
@@ -110,6 +111,7 @@ export type Expr =
   | BinaryExpr
   | UnaryExpr
   | FuncCallExpr
+  | QualifiedCallExpr
   | IfExpr
   | IndexExpr
   | SliceExpr
@@ -162,6 +164,14 @@ export type UnaryExpr = {
 export type FuncCallExpr = {
   kind: 'FuncCallExpr';
   name: string;
+  args: Expr[];
+  span: Span;
+};
+
+export type QualifiedCallExpr = {
+  kind: 'QualifiedCallExpr';
+  ns: string;    // alias namespace
+  name: string;  // function name
   args: Expr[];
   span: Span;
 };

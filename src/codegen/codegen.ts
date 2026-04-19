@@ -3,7 +3,7 @@ import type {
   Stmt, AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
   WhereBlock, WhereLine,
   Expr, NumberLit, BoolLit, IdentExpr, BinaryExpr, UnaryExpr,
-  FuncCallExpr, IfExpr, IndexExpr, SliceExpr, MemberExpr,
+  FuncCallExpr, QualifiedCallExpr, IfExpr, IndexExpr, SliceExpr, MemberExpr,
   ArrayLit, MatrixLit, FracExpr, SqrtExpr,
   AbsExpr, NormExpr, FloorExpr, CeilExpr,
   PmExpr, CasesExpr, SumExpr, PostfixExpr, ChainCmpExpr,
@@ -321,7 +321,9 @@ export class CGenerator {
     const paramStrs = this.buildParamList(node.params);
     const retType = this.funcReturnType(node);
     const cName = translit(node.name);
-    this.emit(`${retType} ${cName}(${paramStrs.join(', ')});`);
+    const hasDefaults = node.params.some(p => p.default !== undefined);
+    const protoName = hasDefaults ? `_${cName}_impl` : cName;
+    this.emit(`${retType} ${protoName}(${paramStrs.join(', ')});`);
   }
 
   private genTopLevel(node: TopLevelNode): void {
@@ -378,7 +380,6 @@ export class CGenerator {
   // ── Func def ────────────────────────────────────────────────────────────────
 
   private genFuncDef(node: FuncDef): void {
-    // Populate type environment for this function
     this.typeEnv = new Map();
     for (const p of node.params) {
       if (p.type) this.typeEnv.set(p.name, p.type);
@@ -387,42 +388,93 @@ export class CGenerator {
     const isPrivate = node.name.startsWith('_');
     const cName = translit(node.name);
 
-    // Build parameter list
+    if (node.params.some(p => p.default !== undefined)) {
+      this.genFuncDefWithDefaults(node, isPrivate, cName);
+    } else {
+      this.genFuncDefSimple(node, isPrivate, cName);
+    }
+  }
+
+  private genFuncDefSimple(node: FuncDef, isPrivate: boolean, cName: string): void {
     const paramStrs = this.buildParamList(node.params);
     const retType = this.funcReturnType(node);
     const sig = `${retType} ${cName}(${paramStrs.join(', ')})`;
 
-    // Wasm: annotate public functions with EMSCRIPTEN_KEEPALIVE
     if (!isPrivate && this.opts.target === 'wasm') {
       this.emit('EMSCRIPTEN_KEEPALIVE');
     }
     this.emit(`${sig} {`);
     this.indent++;
-
-    // Emit default parameter fallback
-    for (const p of node.params) {
-      if (p.default) {
-        const pName = translit(p.name);
-        this.emit(`/* default: ${pName} */`);
-        // In C we can't have default params; document only
-      }
-    }
-
-    // Where block comes first (guards + defs before body)
-    if (node.where) {
-      this.genWhereBlock(node.where);
-    }
-
-    // Function body
+    if (node.where) this.genWhereBlock(node.where);
     this.genFuncBody(node.body);
-
     this.indent--;
     this.emit('}');
     this.emit('');
 
-    // Header declaration for public functions
     if (!isPrivate) {
       this.hLines.push(`${sig};`);
+      this.publicFuncs.push(cName);
+    }
+  }
+
+  private genFuncDefWithDefaults(node: FuncDef, isPrivate: boolean, cName: string): void {
+    const params = node.params;
+    const total = params.length;
+    const retType = this.funcReturnType(node);
+    const implName = `_${cName}_impl`;
+    const paramStrs = this.buildParamList(params);
+    const implSig = `${retType} ${implName}(${paramStrs.join(', ')})`;
+
+    // Emit the implementation body
+    this.emit(`${implSig} {`);
+    this.indent++;
+    if (node.where) this.genWhereBlock(node.where);
+    this.genFuncBody(node.body);
+    this.indent--;
+    this.emit('}');
+
+    // Find how many trailing params have defaults
+    const reqCount = params.findIndex(p => p.default !== undefined);
+    const defaultCount = total - reqCount;
+
+    // Wrappers: _cName_d1 (one default filled) … _cName_d{defaultCount} (all defaults filled)
+    // _d{n} provides (total - n) args and fills the remaining n from defaults
+    const wrapperNames: string[] = [implName];
+    for (let d = 1; d <= defaultCount; d++) {
+      const provided = total - d;
+      const wName = `_${cName}_d${d}`;
+      wrapperNames.push(wName);
+
+      const wParamStrs = params.slice(0, provided).map(p => `mc_num ${translit(p.name)}`).join(', ');
+      const callArgs = params.map((p, i) =>
+        i < provided ? translit(p.name) : this.genExpr(p.default!)
+      ).join(', ');
+
+      this.emit(`static inline ${retType} ${wName}(${wParamStrs}) { return ${implName}(${callArgs}); }`);
+    }
+    this.emit('');
+
+    // Dispatch macro
+    const argcParams = params.map((_, i) => `_${i + 1}`).join(', ') + ', N, ...';
+    this.emit(`#define _${cName}_argc(${argcParams}) N`);
+    this.emit(`#define ${cName}(...) _${cName}_argc(__VA_ARGS__, ${wrapperNames.join(', ')})(__VA_ARGS__)`);
+    this.emit('');
+
+    if (!isPrivate) {
+      this.hLines.push(`${implSig};`);
+      for (let d = 1; d <= defaultCount; d++) {
+        const provided = total - d;
+        const wName = `_${cName}_d${d}`;
+        const wParamStrs = params.slice(0, provided).map(p => `mc_num ${translit(p.name)}`).join(', ');
+        const callArgs = params.map((p, i) =>
+          i < provided ? translit(p.name) : this.genExpr(p.default!)
+        ).join(', ');
+        this.hLines.push(`static inline ${retType} ${wName}(${wParamStrs}) { return ${implName}(${callArgs}); }`);
+      }
+      const argcParams2 = params.map((_, i) => `_${i + 1}`).join(', ') + ', N, ...';
+      this.hLines.push(`#define _${cName}_argc(${argcParams2}) N`);
+      this.hLines.push(`#define ${cName}(...) _${cName}_argc(__VA_ARGS__, ${wrapperNames.join(', ')})(__VA_ARGS__)`);
+      this.hLines.push('');
       this.publicFuncs.push(cName);
     }
   }
@@ -606,7 +658,8 @@ export class CGenerator {
       case 'IdentExpr':   return this.genIdent(expr);
       case 'BinaryExpr':  return this.genBinary(expr);
       case 'UnaryExpr':   return this.genUnary(expr);
-      case 'FuncCallExpr':return this.genFuncCall(expr);
+      case 'FuncCallExpr':     return this.genFuncCall(expr);
+      case 'QualifiedCallExpr':return this.genQualifiedCall(expr as QualifiedCallExpr);
       case 'IfExpr':      return this.genIfExpr(expr);
       case 'IndexExpr':   return this.genIndex(expr);
       case 'SliceExpr':   return this.genSlice(expr);
@@ -760,6 +813,13 @@ export class CGenerator {
       case 'not': return `(!(${inner}) ? 1.0 : 0.0)`;
       default:    return `(-(${inner}))`;
     }
+  }
+
+  private genQualifiedCall(expr: QualifiedCallExpr): string {
+    // alias.func(args) → alias__func(args)
+    const mangledName = `${translit(expr.ns)}__${translit(expr.name)}`;
+    const args = expr.args.map(a => this.genExpr(a)).join(', ');
+    return `${mangledName}(${args})`;
   }
 
   private genFuncCall(expr: FuncCallExpr): string {

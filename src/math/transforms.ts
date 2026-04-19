@@ -112,6 +112,10 @@ function recurseExpr(expr: Expr): Expr {
       const f = expr as FuncCallExpr;
       return { ...f, args: f.args.map(transformExpr) };
     }
+    case 'QualifiedCallExpr': {
+      const q = expr as import('../ast/nodes.js').QualifiedCallExpr;
+      return { ...q, args: q.args.map(transformExpr) };
+    }
     case 'IfExpr': {
       const i = expr as IfExpr;
       return { ...i, cond: transformExpr(i.cond), then: transformExpr(i.then), else_: transformExpr(i.else_) };
