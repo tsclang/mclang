@@ -432,6 +432,26 @@ export class Lexer {
       this.advance();
     }
 
+    // \mathbb{N/Z/R/Q/C} → set tokens
+    if (cmd === '\\mathbb') {
+      if (this.current() === '{') {
+        this.advance(); // consume {
+        const letter = this.current();
+        this.advance(); // consume letter
+        if (this.current() === '}') this.advance(); // consume }
+        const end = this.capturePos();
+        const setKind: Record<string, TokenKind> = {
+          N: TokenKind.KwSetN, Z: TokenKind.KwSetZ,
+          R: TokenKind.KwSetR, Q: TokenKind.KwSetQ, C: TokenKind.KwSetC,
+        };
+        const k = setKind[letter];
+        if (k !== undefined) { this.emitToken(k, `\\mathbb{${letter}}`, start, end); return; }
+      }
+      const end = this.capturePos();
+      this.emitToken(TokenKind.Identifier, '\\mathbb', start, end);
+      return;
+    }
+
     // Special lookahead: \sigma{ → std function, \sigma → identifier
     if (cmd === '\\sigma') {
       const next = this.current();
@@ -507,6 +527,17 @@ export class Lexer {
     }
 
     const end = this.capturePos();
+
+    // Blackboard-bold set symbols (ℕ ℤ ℝ ℚ ℂ) — caught by isIdentStart as Unicode letters
+    const SET_SYMBOLS: Partial<Record<string, TokenKind>> = {
+      'ℕ': TokenKind.KwSetN, 'ℤ': TokenKind.KwSetZ,
+      'ℝ': TokenKind.KwSetR, 'ℚ': TokenKind.KwSetQ, 'ℂ': TokenKind.KwSetC,
+    };
+    const setKind = SET_SYMBOLS[value];
+    if (setKind !== undefined) {
+      this.emitToken(setKind, value, start, end);
+      return;
+    }
 
     // Check trig synonyms
     const canonical = TRIG_SYNONYMS.get(value);
@@ -584,6 +615,9 @@ export class Lexer {
       case '∨': return TokenKind.Or;     // logical OR  → ||
       case '⊕': return TokenKind.KwXor;  // logical XOR → xor
       case '¬': return TokenKind.KwNot;  // logical NOT → !
+      // Set membership operators (also handled via \in / \notin LaTeX)
+      case '∈': return TokenKind.In2;
+      case '∉': return TokenKind.NotIn;
       default: return null;
     }
   }

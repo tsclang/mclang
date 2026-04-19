@@ -34,6 +34,13 @@ export const enum TokenKind {
   KwAs = 'as',
   KwTable = 'table',
 
+  // Mathematical sets: ℕ ℤ ℝ ℚ ℂ  /  \mathbb{N} etc.
+  KwSetN = 'SET_N',
+  KwSetZ = 'SET_Z',
+  KwSetR = 'SET_R',
+  KwSetQ = 'SET_Q',
+  KwSetC = 'SET_C',
+
   StringLit = 'string_lit',
 
   // Arithmetic operators

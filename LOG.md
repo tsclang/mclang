@@ -310,7 +310,24 @@
 - [x] 23 теста — все сценарии + error cases + codegen integration
 - [x] SPEC.md §15.1 обновлена
 
-**Заметки:** Реализовано в `src/import/resolver.ts`. `QualifiedCallExpr` добавлен в `ast/nodes.ts`, `parser.ts`, `codegen.ts`, `math/transforms.ts`, `types/checker.ts`. Стратегия: inline expansion — единственный правильный выбор для embedded-платформ.
+**Заметки:** Реализовано в `src/import/resolver.ts`.
+
+---
+
+## Множества
+
+### [2026-04-19] Set membership — ℕ ℤ ℝ ℚ ℂ
+**Статус:** готово
+
+- [x] Токены `KwSetN/Z/R/Q/C` в `token.ts`
+- [x] Unicode ℕ ℤ ℝ ℚ ℂ → токены (в `scanIdentifier`, т.к. `isIdentStart` перехватывает раньше `scanUnicode`)
+- [x] Unicode `∈` → `In2`, `∉` → `NotIn` в `scanUnicode`
+- [x] LaTeX `\mathbb{N/Z/R/Q/C}` → токены в `scanLatex`
+- [x] Парсер: `x in ℕ` / `x ∈ ℕ` / `x in \mathbb{N}` → compound BinaryExpr (без нового AST-узла)
+- [x] `x !in ℕ` / `x ∉ ℤ` — отрицание через UnaryExpr `!`
+- [x] Раскрытие в C: `ℕ` → `x>=0 && fmod(x,1)==0`, `ℤ` → `fmod(x,1)==0`, `ℝ`/`ℚ` → `isfinite(x)`, `ℂ` → `1`
+- [x] where-guard `n ∈ ℕ` → `if (!...) return NAN;`
+- [x] 24 теста: лексер + кодоген + отрицание + guard `QualifiedCallExpr` добавлен в `ast/nodes.ts`, `parser.ts`, `codegen.ts`, `math/transforms.ts`, `types/checker.ts`. Стратегия: inline expansion — единственный правильный выбор для embedded-платформ.
 
 ---
 

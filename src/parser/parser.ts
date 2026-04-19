@@ -415,27 +415,89 @@ export class Parser {
       if (next === TokenKind.LBracket || next === TokenKind.LParen) {
         return this.parseRangeMembership(left, false);
       }
+      if (this.isSetToken(next)) {
+        this.advance();
+        return this.parseSetMembership(left, this.advance().kind, false);
+      }
       this.advance();
       const right = this.parseCmpExpr();
       return this.mkBinary('∈', left, right, left.span.start);
     }
 
-    // Negated range: x !in [a, b]
+    // Negated range: x !in [a, b] or x !in ℕ
     if (this.check(TokenKind.BangIn)) {
+      if (this.isSetToken(this.peekAt(1).kind)) {
+        this.advance(); // consume !in
+        return this.parseSetMembership(left, this.advance().kind, true);
+      }
       return this.parseRangeMembership(left, true);
     }
 
+    // Unicode ∈ / ∉
     if (this.check(TokenKind.In2)) {
       this.advance();
+      if (this.isSetToken(this.peek().kind)) {
+        return this.parseSetMembership(left, this.advance().kind, false);
+      }
       const right = this.parseCmpExpr();
       return this.mkBinary('∈', left, right, left.span.start);
     }
     if (this.check(TokenKind.NotIn)) {
       this.advance();
+      if (this.isSetToken(this.peek().kind)) {
+        return this.parseSetMembership(left, this.advance().kind, true);
+      }
       const right = this.parseCmpExpr();
       return this.mkBinary('∉', left, right, left.span.start);
     }
     return left;
+  }
+
+  private isSetToken(k: TokenKind): boolean {
+    return k === TokenKind.KwSetN || k === TokenKind.KwSetZ ||
+           k === TokenKind.KwSetR || k === TokenKind.KwSetQ ||
+           k === TokenKind.KwSetC;
+  }
+
+  private parseSetMembership(left: Expr, setKind: TokenKind, negate: boolean): Expr {
+    const s = left.span.start;
+    const span = this.mkSpan(s, this.prev().span.end);
+
+    const zero:  Expr = { kind: 'NumberLit', value: 0, raw: '0', span };
+    const one:   Expr = { kind: 'NumberLit', value: 1, raw: '1', span };
+    const fmod = (x: Expr): Expr =>
+      ({ kind: 'FuncCallExpr', name: 'fmod', args: [x, one], span });
+    const eqZ = (x: Expr): Expr => this.mkBinary('==', x, zero, s);
+    const isfinite = (x: Expr): Expr =>
+      ({ kind: 'FuncCallExpr', name: 'isfinite', args: [x], span });
+
+    let result: Expr;
+    switch (setKind) {
+      case TokenKind.KwSetN:
+        // x >= 0 && fmod(x, 1) == 0
+        result = this.mkBinary('&&',
+          this.mkBinary('>=', left, zero, s),
+          eqZ(fmod(left)), s);
+        break;
+      case TokenKind.KwSetZ:
+        // fmod(x, 1) == 0
+        result = eqZ(fmod(left));
+        break;
+      case TokenKind.KwSetR:
+      case TokenKind.KwSetQ:
+        // isfinite(x)
+        result = isfinite(left);
+        break;
+      case TokenKind.KwSetC:
+      default:
+        // always true: 1
+        result = one;
+    }
+
+    if (negate) {
+      return { kind: 'UnaryExpr', op: '!', operand: result, span };
+    }
+    return { ...result, span };
   }
 
   private parseRangeMembership(left: Expr, negate: boolean): Expr {
