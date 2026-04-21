@@ -39,6 +39,7 @@ mclang /absolute/path/to/math.mc
 | `c` | `file.c` + `file.h` | Статическая линковка (по умолчанию) |
 | `shared` | `file.so` / `file.dll` | Python ctypes, динамическая загрузка |
 | `wasm` | `file.js` + `file.wasm` | JavaScript / Node.js / браузер |
+| `rust` | `file.c` + `file.h` + `file_bindings.rs` | Rust FFI |
 
 ```bash
 mclang physics.mc --target c

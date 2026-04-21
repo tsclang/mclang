@@ -13,6 +13,7 @@ import {
   explainCode,
 } from '../diagnostics/index.js';
 import { runEval } from './eval.js';
+import { generateRust } from '../codegen/rust.js';
 
 const HELP = `
 mclang — Math C Language compiler
@@ -22,7 +23,7 @@ Usage:
   mclang eval <file.mc> [func(arg1, arg2, ...)]
 
 Options:
-  --target <c|wasm|shared>        Output target (default: c)
+  --target <c|wasm|shared|rust>   Output target (default: c)
   --precision <f64|f32|fixed>     Number precision (default: f64)
   --out <dir>                     Output directory (default: same as input)
   --tokens                        Dump token stream and exit
@@ -82,8 +83,8 @@ function main(): void {
   }
 
   const targetArg = (flag(args, '--target') ?? 'c') as CgenTarget;
-  if (!['c', 'wasm', 'shared'].includes(targetArg)) {
-    console.error(`Error: unknown target '${targetArg}'. Use c, wasm, or shared.`);
+  if (!['c', 'wasm', 'shared', 'rust'].includes(targetArg)) {
+    console.error(`Error: unknown target '${targetArg}'. Use c, wasm, shared, or rust.`);
     process.exit(1);
   }
 
@@ -138,8 +139,16 @@ function main(): void {
     writeFileSync(cPath, c, 'utf-8');
     writeFileSync(hPath, h, 'utf-8');
 
-    // Shared target: emit a Python ctypes loader stub
-    if (targetArg === 'shared') {
+    if (targetArg === 'rust') {
+      const rsPath = join(dir, `${base}_bindings.rs`);
+      const rs = generateRust(ast, base, precisionArg);
+      writeFileSync(rsPath, rs, 'utf-8');
+      console.log(`Wrote ${cPath}`);
+      console.log(`Wrote ${hPath}`);
+      console.log(`Wrote ${rsPath}`);
+      console.log(`\nAdd to Cargo.toml:\n  [build-dependencies]\n  cc = "1"`);
+      console.log(`\nCreate build.rs:\n  fn main() { cc::Build::new().file("${base}.c").compile("${base}"); }`);
+    } else if (targetArg === 'shared') {
       const pyPath = join(dir, `${base}_loader.py`);
       const pyStub = genPythonStub(base, h);
       writeFileSync(pyPath, pyStub, 'utf-8');

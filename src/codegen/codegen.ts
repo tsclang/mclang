@@ -14,7 +14,7 @@ import type {
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
-export type CgenTarget    = 'c' | 'wasm' | 'shared';
+export type CgenTarget    = 'c' | 'wasm' | 'shared' | 'rust';
 export type CgenPrecision = 'f64' | 'f32' | 'fixed';
 
 export type CgenOptions = {
@@ -27,6 +27,7 @@ export type CgenOptions = {
 export type CgenOutput = {
   c: string;
   h: string;
+  rs?: string;
 };
 
 // ── Unicode identifier transliteration ───────────────────────────────────────
@@ -169,10 +170,11 @@ export class CGenerator {
 
     const hEpilogue = '\n#endif\n';
 
-    return {
+    const out: CgenOutput = {
       c: this.lines.join('\n'),
       h: hPrologue + this.hLines.join('\n') + hEpilogue,
     };
+    return out;
   }
 
   private genHeader(): void {
