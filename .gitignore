@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Compiled TypeScript output
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.o
+*.tmp

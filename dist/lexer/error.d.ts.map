@@ -1,1 +1,0 @@
-{"version":3,"file":"error.d.ts","sourceRoot":"","sources":["../../src/lexer/error.ts"],"names":[],"mappings":"AAEA,OAAO,EACL,aAAa,IAAI,UAAU,EAC3B,aAAa,EACb,gBAAgB,EAChB,iBAAiB,GAClB,MAAM,yBAAyB,CAAC;AACjC,YAAY,EAAE,UAAU,EAAE,eAAe,EAAE,MAAM,yBAAyB,CAAC"}
