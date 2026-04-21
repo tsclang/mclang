@@ -1,4 +1,4 @@
-include!("../../../mc/ballistics_bindings.rs");
+include!("../../mc/ballistics_bindings.rs");
 
 fn main() {
     let v0    = 50.0_f64;           // m/s

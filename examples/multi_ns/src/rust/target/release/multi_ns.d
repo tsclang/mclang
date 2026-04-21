@@ -1,0 +1,1 @@
+C:\dev\games\ts\mclang\examples\multi_ns\src\rust\target\release\multi_ns.exe: C:\dev\games\ts\mclang\examples\multi_ns\src\rust\../../mc/math_bindings.rs C:\dev\games\ts\mclang\examples\multi_ns\src\rust\build.rs C:\dev\games\ts\mclang\examples\multi_ns\src\rust\main.rs

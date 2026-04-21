@@ -14,7 +14,7 @@ import type {
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
-export type CgenTarget    = 'c' | 'wasm' | 'shared' | 'rust';
+export type CgenTarget    = 'c' | 'wasm' | 'shared' | 'rust' | 'node';
 export type CgenPrecision = 'f64' | 'f32' | 'fixed';
 
 export type CgenOptions = {

@@ -2,5 +2,7 @@ fn main() {
     cc::Build::new()
         .file("../../mc/geometry.c")
         .compile("geometry");
-    println!("cargo:rustc-link-lib=m");
+    if cfg!(unix) {
+        println!("cargo:rustc-link-lib=m");
+    }
 }

@@ -1,4 +1,4 @@
-include!("../../../mc/statistics_bindings.rs");
+include!("../../mc/statistics_bindings.rs");
 
 fn main() {
     let data: Vec<f64> = vec![2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0];

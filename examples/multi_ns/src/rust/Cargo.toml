@@ -3,5 +3,9 @@ name = "multi_ns"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "multi_ns"
+path = "main.rs"
+
 [build-dependencies]
 cc = "1"

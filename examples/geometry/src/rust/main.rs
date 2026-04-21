@@ -1,4 +1,4 @@
-include!("../../../mc/geometry_bindings.rs");
+include!("../../mc/geometry_bindings.rs");
 
 fn print_vec3(label: &str, ptr: *const f64) {
     let s = unsafe { std::slice::from_raw_parts(ptr, 3) };

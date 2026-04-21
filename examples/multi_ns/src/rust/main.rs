@@ -1,4 +1,4 @@
-include!("../../../mc/math_bindings.rs");
+include!("../../mc/math_bindings.rs");
 
 fn main() {
     let (r, w, h) = (5.0_f64, 4.0_f64, 3.0_f64);

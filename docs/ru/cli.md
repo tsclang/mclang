@@ -30,7 +30,7 @@ mclang /absolute/path/to/math.mc
 
 ## Опции
 
-### `--target <c|shared|wasm>`
+### `--target <c|shared|wasm|rust|node>`
 
 Выбор типа выходного файла.
 
@@ -38,13 +38,16 @@ mclang /absolute/path/to/math.mc
 |----------|-----------|------------|
 | `c` | `file.c` + `file.h` | Статическая линковка (по умолчанию) |
 | `shared` | `file.so` / `file.dll` | Python ctypes, динамическая загрузка |
-| `wasm` | `file.js` + `file.wasm` | JavaScript / Node.js / браузер |
+| `wasm` | `file.js` + `file.wasm` | JavaScript / Node.js / браузер (через Emscripten) |
 | `rust` | `file.c` + `file.h` + `file_bindings.rs` | Rust FFI |
+| `node` | `file.c` + `file.h` + `file_napi.c` + `binding.gyp` + `file_bindings.js` | Node.js нативный аддон (N-API, без Emscripten) |
 
 ```bash
 mclang physics.mc --target c
 mclang physics.mc --target shared
 mclang physics.mc --target wasm
+mclang physics.mc --target rust
+mclang physics.mc --target node
 ```
 
 ### `--precision <f64|f32|fixed>`
@@ -163,6 +166,20 @@ mclang math.mc --target wasm
 # → math.wasm
 ```
 
+### Для Node.js (нативный аддон)
+
+```bash
+mclang math.mc --target node
+# → math.c
+# → math.h
+# → math_napi.c
+# → binding.gyp
+# → math_bindings.js
+
+npx node-gyp configure build
+node main.js  # const math = require('./math_bindings')
+```
+
 ### Файл с импортами
 
 При наличии `import` в файле компилятор автоматически разрешает зависимости:
@@ -254,4 +271,6 @@ Error [formula.mc:1]: Unknown LaTeX command '\unknown'
 - [Синтаксис языка](language/syntax/indentation.md)
 - [Интеграция с C](integration/c/compile.md)
 - [Интеграция с Python](integration/python/load.md)
-- [Интеграция с JavaScript](integration/js/emcc.md)
+- [Интеграция с JavaScript (Wasm)](integration/js/emcc.md)
+- [Интеграция с Node.js (нативный аддон)](integration/node/index.md)
+- [Интеграция с Rust](integration/rust/index.md)

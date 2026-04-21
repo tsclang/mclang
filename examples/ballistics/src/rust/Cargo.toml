@@ -3,5 +3,9 @@ name = "ballistics"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "ballistics"
+path = "main.rs"
+
 [build-dependencies]
 cc = "1"

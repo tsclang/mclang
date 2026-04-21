@@ -1,0 +1,1 @@
+C:\dev\games\ts\mclang\examples\number_theory\src\rust\target\release\number_theory.exe: C:\dev\games\ts\mclang\examples\number_theory\src\rust\../../mc/number_theory_bindings.rs C:\dev\games\ts\mclang\examples\number_theory\src\rust\build.rs C:\dev\games\ts\mclang\examples\number_theory\src\rust\main.rs

@@ -1,4 +1,4 @@
-include!("../../../mc/number_theory_bindings.rs");
+include!("../../mc/number_theory_bindings.rs");
 
 fn bool_str(v: f64) -> &'static str {
     if v != 0.0 { "true" } else { "false" }
