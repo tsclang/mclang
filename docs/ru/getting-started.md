@@ -4,8 +4,10 @@
 
 - Node.js 18+
 - GCC (для компиляции сгенерированного Си-кода)
-- Python 3.8+ (опционально, для ctypes-интеграции)
-- Emscripten (опционально, для WebAssembly)
+- Python 3.8+ (опционально, для `--target shared`)
+- Emscripten (опционально, для `--target wasm`)
+- node-gyp (опционально, для `--target node`)
+- Rust / Cargo (опционально, для `--target rust`)
 
 ---
 
@@ -133,67 +135,13 @@ gcc hello.c main.c -lm -o demo
 
 ---
 
-## Использование из Python
-
-Собери shared library:
-
-```bash
-# Linux / macOS
-gcc -shared -fPIC hello.c -lm -o hello.so
-
-# Windows
-gcc -shared hello.c -lm -o hello.dll
-```
-
-```python
-import ctypes, math, sys
-
-lib = ctypes.CDLL('./hello.dll')   # или './hello.so'
-
-lib.circle_area.argtypes = [ctypes.c_double]
-lib.circle_area.restype  = ctypes.c_double
-
-lib.circle_perimeter.argtypes = [ctypes.c_double]
-lib.circle_perimeter.restype  = ctypes.c_double
-
-r = 5.0
-print(f"Площадь:   {lib.circle_area(r):.4f}")
-print(f"Периметр:  {lib.circle_perimeter(r):.4f}")
-```
-
----
-
-## Использование из JavaScript (WebAssembly)
-
-Требует [Emscripten](https://emscripten.org/).
-
-```bash
-emcc hello.c \
-  -o hello.js \
-  -s EXPORTED_FUNCTIONS='["_circle_area","_circle_perimeter"]' \
-  -s EXPORTED_RUNTIME_METHODS='["cwrap"]' \
-  -s ENVIRONMENT='node' \
-  -lm
-```
-
-```javascript
-const Module = require('./hello.js');
-
-Module.onRuntimeInitialized = () => {
-  const circle_area      = Module.cwrap('circle_area',      'number', ['number']);
-  const circle_perimeter = Module.cwrap('circle_perimeter', 'number', ['number']);
-
-  const r = 5.0;
-  console.log(`Площадь:   ${circle_area(r).toFixed(4)}`);
-  console.log(`Периметр:  ${circle_perimeter(r).toFixed(4)}`);
-};
-```
-
----
-
 ## Следующие шаги
 
 - [CLI: все флаги и опции](cli.md)
+- [Интеграция с Python](integration/python/load.md)
+- [Интеграция с JavaScript (Wasm)](integration/js/emcc.md)
+- [Интеграция с Node.js (нативный аддон)](integration/node/index.md)
+- [Интеграция с Rust](integration/rust/index.md)
 - [Синтаксис языка](language/syntax/indentation.md)
 - [LaTeX-операторы](latex/index.md)
 - [Примеры проектов](../../examples/)
