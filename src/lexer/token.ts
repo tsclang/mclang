@@ -33,6 +33,7 @@ export const enum TokenKind {
   KwFrom = 'from',
   KwAs = 'as',
   KwTable = 'table',
+  KwOtherwise = 'otherwise',
 
   // Mathematical sets: ℕ ℤ ℝ ℚ ℂ  /  \mathbb{N} etc.
   KwSetN = 'SET_N',
@@ -75,6 +76,7 @@ export const enum TokenKind {
   Or = '||',
   Not = '!',        // unary
   BangIn = '!in',   // range exclusion: x !in [a, b]
+  Ampersand = '&',  // single & — cases separator in \begin{cases}
 
   // Assignment
   Assign = '=',
@@ -150,6 +152,7 @@ export const enum TokenKind {
   Gamma = '\\Gamma',     // tgamma (if followed by {)
   GammaId = '\\Gamma_id',// identifier (if not followed by {)
   Bar = '\\bar',         // mean
+  CasesRowSep = 'CASES_ROW_SEP',  // \\ row separator inside \begin{cases}
 
   // Indentation
   Indent = 'INDENT',
@@ -201,7 +204,8 @@ export const KEYWORDS: ReadonlyMap<string, TokenKind> = new Map([
   ['import',  TokenKind.KwImport],
   ['from',    TokenKind.KwFrom],
   ['as',      TokenKind.KwAs],
-  ['table',   TokenKind.KwTable],
+  ['table',     TokenKind.KwTable],
+  ['otherwise', TokenKind.KwOtherwise],
 ]);
 
 // LaTeX commands → token kind

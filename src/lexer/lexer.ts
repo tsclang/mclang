@@ -213,6 +213,10 @@ export class Lexer {
       this.pushTokenAt(TokenKind.And, '&&', 2);
       return;
     }
+    if (c === '&') {
+      this.pushTokenAt(TokenKind.Ampersand, '&', 1);
+      return;
+    }
     if (c === '|' && this.peek(1) === '|') {
       this.pushTokenAt(TokenKind.Or, '||', 2);
       return;
@@ -430,6 +434,39 @@ export class Lexer {
     while (this.pos < this.source.length && /[a-zA-Z]/.test(this.current())) {
       cmd += this.current();
       this.advance();
+    }
+
+    // \\ (double backslash) — row separator inside \begin{cases}
+    if (cmd === '\\' && this.current() === '\\') {
+      this.advance(); // consume second backslash
+      const end = this.capturePos();
+      this.emitToken(TokenKind.CasesRowSep, '\\\\', start, end);
+      return;
+    }
+
+    // \text{word} — LaTeX text mode; emit 'if'/'otherwise' keywords or identifier
+    if (cmd === '\\text') {
+      if (this.current() === '{') {
+        this.advance(); // consume {
+        let word = '';
+        while (this.pos < this.source.length && this.current() !== '}') {
+          word += this.current();
+          this.advance();
+        }
+        if (this.current() === '}') this.advance(); // consume }
+        const end = this.capturePos();
+        const textKind: Record<string, TokenKind> = {
+          if:        TokenKind.KwIf,
+          otherwise: TokenKind.KwOtherwise,
+          else:      TokenKind.KwElse,
+        };
+        const k = textKind[word.trim()];
+        this.emitToken(k ?? TokenKind.Identifier, word.trim() || cmd, start, end);
+      } else {
+        const end = this.capturePos();
+        this.emitToken(TokenKind.Identifier, cmd, start, end);
+      }
+      return;
     }
 
     // \mathbb{N/Z/R/Q/C} → set tokens

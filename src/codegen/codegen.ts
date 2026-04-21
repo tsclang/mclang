@@ -556,13 +556,40 @@ export class CGenerator {
       const isLast = i === stmts.length - 1;
 
       if (isLast && stmt.kind === 'ExprStmt') {
-        // Implicit return: last expression
-        const val = this.genExpr(stmt.expr);
-        this.emit(`return ${val};`);
+        if (stmt.expr.kind === 'CasesExpr') {
+          this.genCasesReturn(stmt.expr as CasesExpr);
+        } else {
+          // Implicit return: last expression
+          const val = this.genExpr(stmt.expr);
+          this.emit(`return ${val};`);
+        }
       } else {
         this.genStmt(stmt);
       }
     }
+  }
+
+  private genCasesReturn(expr: CasesExpr): void {
+    let first = true;
+    for (const { value, cond } of expr.cases) {
+      const c = this.genCond(cond);
+      const v = this.genExpr(value);
+      if (first) {
+        this.emit(`if (${c}) {`);
+        first = false;
+      } else {
+        this.emit(`} else if (${c}) {`);
+      }
+      this.indent++;
+      this.emit(`return ${v};`);
+      this.indent--;
+    }
+    const elseVal = expr.else_ ? this.genExpr(expr.else_) : 'NAN';
+    this.emit('} else {');
+    this.indent++;
+    this.emit(`return ${elseVal};`);
+    this.indent--;
+    this.emit('}');
   }
 
   // ── Statements ───────────────────────────────────────────────────────────────
@@ -588,8 +615,37 @@ export class CGenerator {
     this.emit(`mc_num ${name} = ${val};`);
   }
 
+  // Generate a boolean condition expression without ternary wrapping.
+  // Result is suitable for direct use in `if (${genCond(...)})`.
+  private genCond(expr: Expr): string {
+    if (expr.kind === 'BinaryExpr') {
+      const l = this.genExpr(expr.left);
+      const r = this.genExpr(expr.right);
+      switch (expr.op) {
+        case '==': return `(${l}) == (${r})`;
+        case '!=':
+        case '≠':  return `(${l}) != (${r})`;
+        case '<':  return `(${l}) < (${r})`;
+        case '>':  return `(${l}) > (${r})`;
+        case '<=':
+        case '≤':  return `(${l}) <= (${r})`;
+        case '>=':
+        case '≥':  return `(${l}) >= (${r})`;
+        case '&&': return `${this.genCond(expr.left)} && ${this.genCond(expr.right)}`;
+        case '||': return `${this.genCond(expr.left)} || ${this.genCond(expr.right)}`;
+      }
+    }
+    if (expr.kind === 'UnaryExpr' && (expr.op === '!' || expr.op === 'not')) {
+      return `!(${this.genCond(expr.operand)})`;
+    }
+    if (expr.kind === 'BoolLit') {
+      return expr.value ? '1' : '0';
+    }
+    return this.genExpr(expr);
+  }
+
   private genIfNode(node: IfNode): void {
-    const cond = this.genExpr(node.cond);
+    const cond = this.genCond(node.cond);
 
     if (!node.else_) {
       // Guard clause: if (!cond) return NAN;
@@ -613,8 +669,7 @@ export class CGenerator {
 
     if (node.else_) {
       if (!Array.isArray(node.else_) && node.else_?.kind === 'IfNode') {
-        this.emit('} else ');
-        this.genIfNode(node.else_ as IfNode);
+        this.genElseIfChain(node.else_ as IfNode);
         return;
       }
       this.emit('} else {');
@@ -623,6 +678,27 @@ export class CGenerator {
       this.indent--;
     }
     this.emit('}');
+  }
+
+  private genElseIfChain(node: IfNode): void {
+    const cond = this.genCond(node.cond);
+    this.emit(`} else if (${cond}) {`);
+    this.indent++;
+    this.genBranch(node.then);
+    this.indent--;
+    if (node.else_) {
+      if (!Array.isArray(node.else_) && node.else_?.kind === 'IfNode') {
+        this.genElseIfChain(node.else_ as IfNode);
+      } else {
+        this.emit('} else {');
+        this.indent++;
+        this.genBranch(node.else_ as Expr | Stmt[]);
+        this.indent--;
+        this.emit('}');
+      }
+    } else {
+      this.emit('}');
+    }
   }
 
   private isInlineExprBranch(branch: Expr | Stmt[]): boolean {
@@ -954,7 +1030,7 @@ export class CGenerator {
   }
 
   private genIfExpr(expr: IfExpr): string {
-    const cond = this.genExpr(expr.cond);
+    const cond = this.genCond(expr.cond);
     const then = this.genExpr(expr.then);
     const else_ = this.genExpr(expr.else_);
     return `((${cond}) ? (${then}) : (${else_}))`;
@@ -1091,7 +1167,7 @@ export class CGenerator {
     let result = expr.else_ ? this.genExpr(expr.else_) : 'NAN';
     for (let i = expr.cases.length - 1; i >= 0; i--) {
       const { value, cond } = expr.cases[i]!;
-      result = `((${this.genExpr(cond)}) ? (${this.genExpr(value)}) : (${result}))`;
+      result = `((${this.genCond(cond)}) ? (${this.genExpr(value)}) : (${result}))`;
     }
     return result;
   }

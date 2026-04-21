@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname, basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
@@ -18,6 +18,16 @@ function findGcc(): string {
     }
   }
   throw new Error('GCC not found. Install gcc and make sure it is in PATH.');
+}
+
+function gccEnv(): NodeJS.ProcessEnv {
+  if (process.platform !== 'win32') return process.env;
+  // MinGW gcc (MSYS2) must see its own directories first in PATH so it can
+  // locate cc1.exe, as.exe etc. Always prepend mingw64/bin + usr/bin when present.
+  const prepend = ['C:\\msys64\\mingw64\\bin', 'C:\\msys64\\usr\\bin']
+    .filter(d => existsSync(d));
+  if (prepend.length === 0) return process.env;
+  return { ...process.env, PATH: prepend.join(';') + ';' + (process.env.PATH ?? '') };
 }
 
 function parseCall(callStr: string): { name: string; args: number[] } | null {
@@ -183,9 +193,10 @@ export function runEval(mcFile: string | undefined, callArgs: string[]): void {
     writeFileSync(driverPath, driver, 'utf-8');
 
     const gcc = findGcc();
-    execSync(`${gcc} "${fwd(cPath)}" "${fwd(driverPath)}" -lm -o "${fwd(binPath)}"`, { stdio: 'pipe' });
+    const env = gccEnv();
+    execSync(`${gcc} "${fwd(cPath)}" "${fwd(driverPath)}" -lm -o "${fwd(binPath)}"`, { stdio: 'pipe', env });
 
-    const output = execSync(`"${fwd(binExe)}"`, { encoding: 'utf-8' });
+    const output = execSync(`"${fwd(binExe)}"`, { encoding: 'utf-8', env });
     process.stdout.write(output);
   } catch (err: unknown) {
     if (err && typeof err === 'object' && 'stderr' in err) {

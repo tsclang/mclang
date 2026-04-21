@@ -593,12 +593,42 @@ export class Parser {
 
   private parseMulExpr(): Expr {
     let left = this.parsePowExpr();
-    while (this.isMulOp()) {
-      const op = this.advance();
-      const right = this.parsePowExpr();
-      left = this.mkBinary(this.mulOpKind(op.kind), left, right, op.span.start);
+    for (;;) {
+      if (this.isMulOp()) {
+        const op = this.advance();
+        const right = this.parsePowExpr();
+        left = this.mkBinary(this.mulOpKind(op.kind), left, right, op.span.start);
+      } else if (this.isImplicitMulStart()) {
+        const right = this.parsePowExpr();
+        left = this.mkBinary('*', left, right, left.span.start);
+      } else {
+        break;
+      }
     }
     return left;
+  }
+
+  private isImplicitMulStart(): boolean {
+    const k = this.peek().kind;
+    return (
+      k === TokenKind.Identifier ||
+      k === TokenKind.LParen ||
+      // AbsOpen (|) and NormOpen (‖) are excluded: they share the same token kind
+      // as AbsClose/NormClose, causing ambiguity when used after a parsed expression.
+      k === TokenKind.FloorOpen ||
+      k === TokenKind.CeilOpen ||
+      k === TokenKind.Sqrt ||
+      k === TokenKind.Frac ||
+      k === TokenKind.Sigma || k === TokenKind.SigmaId ||
+      k === TokenKind.Gamma || k === TokenKind.GammaId ||
+      k === TokenKind.Bar ||
+      k === TokenKind.Sin || k === TokenKind.Cos || k === TokenKind.Tan ||
+      k === TokenKind.Cot || k === TokenKind.Sec || k === TokenKind.Csc ||
+      k === TokenKind.Arcsin || k === TokenKind.Arccos || k === TokenKind.Arctan ||
+      k === TokenKind.Sinh || k === TokenKind.Cosh || k === TokenKind.Tanh ||
+      k === TokenKind.Log || k === TokenKind.Ln || k === TokenKind.Lg ||
+      k === TokenKind.Gcd || k === TokenKind.Lcm
+    );
   }
 
   private isMulOp(): boolean {
@@ -1000,33 +1030,52 @@ export class Parser {
     this.expect(TokenKind.RBrace);
     this.skipNewlines();
 
+    // Consume optional INDENT when cases body is indented
+    const hasIndent = this.check(TokenKind.Indent);
+    if (hasIndent) this.advance();
+
     const cases: Array<{ value: Expr; cond: Expr }> = [];
     let else_: Expr | undefined;
 
-    while (!this.check(TokenKind.End) && !this.check(TokenKind.EOF)) {
+    while (!this.check(TokenKind.End) && !this.check(TokenKind.Dedent) && !this.check(TokenKind.EOF)) {
       this.skipNewlines();
-      if (this.check(TokenKind.End) || this.check(TokenKind.EOF)) break;
-      const value = this.parseExpr();
-      if (this.check(TokenKind.And)) {
-        // `&` used as cases separator — but `&` is `And` (&&), not a single `&`.
-        // Actually the spec uses `&` not `&&`. We'll check for `And` since lexer maps `&&`.
-        // For now just treat any `&`-like as separator.
-        this.advance();
-        const cond = this.parseExpr();
-        // consume `\\` (two backslashes) — lexed as Backslash twice
-        if (this.check(TokenKind.Backslash)) {
+      if (this.check(TokenKind.End) || this.check(TokenKind.Dedent) || this.check(TokenKind.EOF)) break;
+
+      // Parse value at Cmp level (stops before && and ||) so they can serve as separators
+      const value = this.parseCmpExpr();
+
+      // Cases separator: & or &&
+      if (this.check(TokenKind.Ampersand) || this.check(TokenKind.And)) {
+        this.advance(); // consume & or &&
+
+        // Skip \text{if} or bare 'if' keyword used as visual separator
+        if (this.check(TokenKind.KwIf)) this.advance();
+
+        // \text{otherwise} or 'otherwise' keyword → else branch
+        if (this.check(TokenKind.KwOtherwise)) {
+          else_ = value;
           this.advance();
-          if (this.check(TokenKind.Backslash)) this.advance();
+          if (this.check(TokenKind.CasesRowSep)) this.advance();
+          this.skipNewlines();
+          break;
         }
+
+        const cond = this.parseExpr();
+        // Consume \\ row separator (now emits CasesRowSep)
+        if (this.check(TokenKind.CasesRowSep)) this.advance();
         this.skipNewlines();
         cases.push({ value, cond });
       } else {
-        // Last case — no condition
+        // No separator — this is the else branch (no-condition last case)
         else_ = value;
+        if (this.check(TokenKind.CasesRowSep)) this.advance();
         this.skipNewlines();
         break;
       }
     }
+
+    // Consume DEDENT if body was indented
+    if (hasIndent && this.check(TokenKind.Dedent)) this.advance();
 
     this.expect(TokenKind.End);
     this.expect(TokenKind.LBrace);
