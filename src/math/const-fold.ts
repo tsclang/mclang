@@ -11,7 +11,7 @@ export function constantFold(expr: Expr): Expr {
       const u = expr as UnaryExpr;
       const operand = constantFold(u.operand);
       if (u.op === '-' && operand.kind === 'NumberLit') {
-        return { kind: 'NumberLit', value: -operand.value, span: u.span };
+        return { kind: 'NumberLit', value: -operand.value, raw: String(-operand.value), span: u.span };
       }
       return { ...u, operand };
     }
@@ -32,7 +32,7 @@ export function constantFold(expr: Expr): Expr {
           case '^': result = Math.pow(l, r); break;
         }
         if (result !== undefined && isFinite(result)) {
-          return { kind: 'NumberLit', value: result, span: b.span };
+          return { kind: 'NumberLit', value: result, raw: String(result), span: b.span };
         }
       }
       // x + 0 → x, x - 0 → x
@@ -51,7 +51,7 @@ export function constantFold(expr: Expr): Expr {
         (right.kind === 'NumberLit' && right.value === 0 && b.op === '*') ||
         (left.kind === 'NumberLit' && left.value === 0 && b.op === '*')
       ) {
-        return { kind: 'NumberLit', value: 0, span: b.span };
+        return { kind: 'NumberLit', value: 0, raw: '0', span: b.span };
       }
       return { ...b, left, right };
     }
@@ -60,7 +60,7 @@ export function constantFold(expr: Expr): Expr {
       const num = constantFold(expr.num);
       const den = constantFold(expr.den);
       if (num.kind === 'NumberLit' && den.kind === 'NumberLit' && den.value !== 0) {
-        return { kind: 'NumberLit', value: num.value / den.value, span: expr.span };
+        return { kind: 'NumberLit', value: num.value / den.value, raw: String(num.value / den.value), span: expr.span };
       }
       return { ...expr, num, den };
     }

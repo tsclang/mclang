@@ -612,7 +612,7 @@ export class CGenerator {
     this.indent--;
 
     if (node.else_) {
-      if (node.else_?.kind === 'IfNode') {
+      if (!Array.isArray(node.else_) && node.else_?.kind === 'IfNode') {
         this.emit('} else ');
         this.genIfNode(node.else_ as IfNode);
         return;

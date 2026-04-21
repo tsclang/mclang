@@ -12,12 +12,14 @@ import {
   formatDiagnostic,
   explainCode,
 } from '../diagnostics/index.js';
+import { runEval } from './eval.js';
 
 const HELP = `
 mclang — Math C Language compiler
 
 Usage:
   mclang <file.mc> [options]
+  mclang eval <file.mc> [func(arg1, arg2, ...)]
 
 Options:
   --target <c|wasm|shared>        Output target (default: c)
@@ -32,6 +34,8 @@ Examples:
   mclang physics.mc --target c
   mclang math.mc --target wasm --precision f32
   mclang --explain E030
+  mclang eval ballistics.mc
+  mclang eval ballistics.mc "range(50, 0.785)"
 `.trim();
 
 function flag(args: string[], name: string): string | undefined {
@@ -57,6 +61,13 @@ function main(): void {
     }
     console.log(explanation);
     process.exit(0);
+  }
+
+  // eval subcommand
+  if (args[0] === 'eval') {
+    const [, mcFile, ...callArgs] = args;
+    runEval(mcFile, callArgs);
+    return;
   }
 
   if (args.includes('--no-color')) {

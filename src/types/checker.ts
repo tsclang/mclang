@@ -222,7 +222,7 @@ function checkExpr(
       for (const el of expr.elements) checkExpr(el, params, funcSigs, errors);
       break;
     case 'MatrixLit':
-      for (const row of expr.rows) for (const el of row) checkExpr(el, params, funcSigs, errors);
+      for (const row of expr.rows) for (const el of row.elements) checkExpr(el, params, funcSigs, errors);
       break;
     case 'FracExpr':
       checkExpr(expr.num, params, funcSigs, errors);
@@ -230,7 +230,7 @@ function checkExpr(
       break;
     case 'SqrtExpr':
       checkExpr(expr.radicand, params, funcSigs, errors);
-      if (expr.index) checkExpr(expr.index, params, funcSigs, errors);
+      if (expr.degree) checkExpr(expr.degree, params, funcSigs, errors);
       break;
     case 'AbsExpr':
     case 'NormExpr':
@@ -238,14 +238,14 @@ function checkExpr(
     case 'CeilExpr':
     case 'PmExpr':
     case 'PostfixExpr':
-      checkExpr(expr.expr, params, funcSigs, errors);
+      checkExpr(expr.operand, params, funcSigs, errors);
       break;
     case 'CasesExpr':
       for (const c of expr.cases) {
         checkExpr(c.value, params, funcSigs, errors);
         checkExpr(c.cond, params, funcSigs, errors);
       }
-      if (expr.otherwise) checkExpr(expr.otherwise, params, funcSigs, errors);
+      if (expr.else_) checkExpr(expr.else_, params, funcSigs, errors);
       break;
     case 'SumExpr':
       checkExpr(expr.body, params, funcSigs, errors);
@@ -253,7 +253,7 @@ function checkExpr(
       if (expr.hi) checkExpr(expr.hi, params, funcSigs, errors);
       break;
     case 'ChainCmpExpr':
-      for (const operand of expr.operands) checkExpr(operand, params, funcSigs, errors);
+      for (const operand of expr.parts) checkExpr(operand, params, funcSigs, errors);
       break;
     case 'LimExpr':
       checkExpr(expr.body, params, funcSigs, errors);
