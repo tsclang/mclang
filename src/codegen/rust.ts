@@ -112,12 +112,26 @@ function emitDefaultsVariants(lines: string[], node: FuncDef, cName: string, num
   }
 }
 
+// Mirror of CGenerator.exprReturnsPtr
+const ARRAY_RETURNING_FNS = new Set([
+  'cross', 'transpose', 'inv', 'I', 'zeros', 'ones',
+]);
+
+function exprReturnsPtr(expr: { kind: string; name?: string }): boolean {
+  switch (expr.kind) {
+    case 'MatrixSlice': return true;
+    case 'SliceExpr':   return true;
+    case 'PmExpr':      return true;
+    case 'ArrayLit':    return true;
+    case 'FuncCallExpr': return ARRAY_RETURNING_FNS.has(expr.name ?? '');
+    default: return false;
+  }
+}
+
 function funcReturnType(node: FuncDef, num: string): string {
   const last = node.body[node.body.length - 1];
-  if (last?.kind === 'ExprStmt') {
-    const e = last.expr;
-    // PmExpr and ArrayLit return a pointer
-    if (e.kind === 'PmExpr' || e.kind === 'ArrayLit') return `*const ${num}`;
+  if (last?.kind === 'ExprStmt' && exprReturnsPtr(last.expr)) {
+    return `*const ${num}`;
   }
   return num;
 }
