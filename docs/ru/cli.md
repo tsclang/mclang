@@ -71,6 +71,61 @@ mclang physics.mc --out ./build
 mclang physics.mc --out /tmp/generated
 ```
 
+### `--tokens`
+
+Выводит поток токенов и завершает работу. Полезно при отладке лексера.
+
+```bash
+mclang formula.mc --tokens
+# Identifier         "f"                  1:0–1:1
+# LParen             "("                  1:1–1:2
+# ...
+```
+
+### `--no-color`
+
+Отключает ANSI-раскраску в сообщениях об ошибках. Удобно для CI или pipe.
+
+```bash
+mclang formula.mc --no-color 2>&1 | grep Error
+```
+
+### `--explain <КОД>`
+
+Объясняет код ошибки компилятора.
+
+```bash
+mclang --explain E030
+```
+
+---
+
+## Подкоманда eval
+
+```bash
+mclang eval <файл.mc> [вызов]
+```
+
+Компилирует файл и сразу вызывает функцию — без написания C-драйвера вручную. Требует `gcc` в PATH.
+
+### Без вызова — список функций
+
+```bash
+mclang eval ballistics.mc
+# range(v0, angle)
+# max_height(v0, angle)
+# time_of_flight(v0, angle)
+```
+
+### С вызовом — результат
+
+```bash
+mclang eval ballistics.mc "range(50, 0.785)"
+# range(50, 0.785) = 254.8427
+```
+
+Аргументы в скобках — числа через запятую. Кавычки нужны, если в вызове есть пробелы.
+
 ---
 
 ## Примеры

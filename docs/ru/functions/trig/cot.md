@@ -11,18 +11,14 @@ ctg(x: num) → num   // синоним (русская традиция)
 
 ---
 
-## Реализация
-
-```c
-static inline mc_num mc_cot(mc_num x) { return 1.0 / tan(x); }
-```
-
----
-
-## Пример
+## Генерируемый C-код
 
 ```mc
 f(x) = cot(x)
+```
+
+```c
+mc_num f(mc_num x) { return (1.0/tan(x)); }
 ```
 
 ---

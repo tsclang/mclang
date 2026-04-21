@@ -12,17 +12,22 @@
 | [cos(x)](trig/cos.md) | радианы | `cos(x)` | Косинус |
 | [tan(x)](trig/tan.md) | радианы | `tan(x)` | Тангенс |
 | [cot(x)](trig/cot.md) | радианы | `1/tan(x)` | Котангенс |
+| [sec(x)](trig/sec.md) | радианы | `1/cos(x)` | Секанс |
+| [csc(x)](trig/csc.md) | радианы | `1/sin(x)` | Косеканс |
 | [arcsin(x)](trig/arcsin.md) | [-1,1] | `asin(x)` | Арксинус |
 | [arccos(x)](trig/arccos.md) | [-1,1] | `acos(x)` | Арккосинус |
 | [arctan(x)](trig/arctan.md) | ℝ | `atan(x)` | Арктангенс |
 | [arctan2(y,x)](trig/arctan.md) | ℝ² | `atan2(y,x)` | Двухаргументный |
-| [arccot(x)](trig/arccot.md) | ℝ | | Арккотангенс |
+| [arccot(x)](trig/arccot.md) | ℝ | `atan2(1,x)` | Арккотангенс |
 | [sinh(x)](trig/sinh.md) | ℝ | `sinh(x)` | Гиперболический синус |
 | [cosh(x)](trig/cosh.md) | ℝ | `cosh(x)` | Гиперболический косинус |
 | [tanh(x)](trig/tanh.md) | ℝ | `tanh(x)` | Гиперболический тангенс |
-| [coth(x)](trig/coth.md) | ℝ | | Гиперболический котангенс |
+| [coth(x)](trig/coth.md) | ℝ | `1/tanh(x)` | Гиперболический котангенс |
+| [asinh(x)](trig/asinh-acosh-atanh.md) | ℝ | `asinh(x)` | Обратный sinh |
+| [acosh(x)](trig/asinh-acosh-atanh.md) | [1,∞) | `acosh(x)` | Обратный cosh |
+| [atanh(x)](trig/asinh-acosh-atanh.md) | (-1,1) | `atanh(x)` | Обратный tanh |
 
-Синонимы: `tg` = `tan`, `ctg` = `cot`, `sh` = `sinh`, `ch` = `cosh`, `th` = `tanh`.
+Синонимы: `tg` = `tan`, `ctg` = `cot`, `sh` = `sinh`, `ch` = `cosh`, `th` = `tanh`, `arcsh` = `asinh`, `arcch` = `acosh`, `arcth` = `atanh`.
 
 ---
 
@@ -33,8 +38,10 @@
 | [exp(x)](exp-log/exp.md) | `exp(x)` | e^x |
 | [ln(x)](exp-log/ln.md) | `log(x)` | Натуральный логарифм |
 | [lg(x)](exp-log/lg.md) | `log10(x)` | Десятичный логарифм |
+| [log2(x)](exp-log/log2.md) | `log2(x)` | Логарифм по основанию 2 |
 | [log(base, x)](exp-log/log-base.md) | `log(x)/log(base)` | Логарифм по основанию |
 | [sqrt(x)](exp-log/sqrt.md) | `sqrt(x)` | Квадратный корень |
+| [cbrt(x)](exp-log/cbrt.md) | `cbrt(x)` | Кубический корень |
 | [sqrt(n, x)](exp-log/sqrt-n.md) | `pow(x, 1.0/n)` | Корень n-й степени |
 
 ---
@@ -46,8 +53,9 @@
 | [floor(x)](rounding/floor.md) | `floor(x)` | Округление вниз |
 | [ceil(x)](rounding/ceil.md) | `ceil(x)` | Округление вверх |
 | [round(x)](rounding/floor.md) | `round(x)` | Округление к ближайшему |
+| [trunc(x)](rounding/trunc.md) | `trunc(x)` | Усечение к нулю |
 | [abs(x)](rounding/abs.md) | `fabs(x)` | Модуль |
-| [sgn(x)](rounding/sgn.md) | `mc_sgn(x)` | Знак |
+| [sgn(x)](rounding/sgn.md) | `mc_sgn(x)` | Знак (`sign` — синоним) |
 | [fmod(x,y)](rounding/fmod.md) | `fmod(x,y)` | Остаток с плавающей точкой |
 
 ---
@@ -68,10 +76,12 @@
 | Функция | Си | Описание |
 |---------|----|----------|
 | [erf(x)](special/erf.md) | `erf(x)` | Функция ошибок |
+| [erfc(x)](special/erfc.md) | `erfc(x)` | Дополнительная функция ошибок |
 | [gamma(x)](special/gamma.md) | `tgamma(x)` | Гамма-функция |
-| is_nan(x) | `isnan(x)` | Проверка NaN |
-| is_inf(x) | `isinf(x)` | Проверка бесконечности |
-| is_finite(x) | `isfinite(x)` | Проверка конечности |
+| [is_nan(x)](special/is-nan-inf.md) | `isnan(x)` | Проверка NaN |
+| [is_inf(x)](special/is-nan-inf.md) | `isinf(x)` | Проверка бесконечности |
+| [is_finite(x)](special/is-nan-inf.md) | `isfinite(x)` | Проверка конечности |
+| [solve(var, lo, hi) { }](special/solve.md) | bisection | Численное решение уравнений |
 
 ---
 
@@ -95,6 +105,7 @@
 | [dot(a, b)](vector/dot.md) | Скалярное произведение |
 | [cross(a, b)](vector/cross.md) | Векторное произведение |
 | [norm(v)](vector/norm.md) | Евклидова норма |
+| [hypot(x, y)](vector/hypot.md) | Гипотенуза √(x²+y²) |
 
 ---
 

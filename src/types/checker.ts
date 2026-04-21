@@ -1,7 +1,7 @@
 import type { Span } from './index.js';
 import type {
   File, FuncDef, Stmt, Expr,
-  AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
+  AssignStmt, IfNode, ForStmt, WhileStmt,
   WhereBlock, FuncCallExpr,
 } from '../ast/nodes.js';
 
@@ -14,7 +14,7 @@ export type TypeError = {
 const BUILTINS = new Set([
   'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
   'asin', 'acos', 'atan', 'atan2', 'acot',
-  'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
+  'sinh', 'cosh', 'tanh', 'coth', 'asinh', 'acosh', 'atanh',
   'sqrt', 'cbrt', 'exp', 'log', 'log2', 'log10',
   'abs', 'fabs', 'floor', 'ceil', 'round', 'trunc',
   'min', 'max', 'fmin', 'fmax', 'hypot',

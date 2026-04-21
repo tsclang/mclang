@@ -981,6 +981,29 @@ export class CGenerator {
       return `(log(${x}) / log(${base}))`;
     }
 
+    // Reciprocal trig — no direct C counterpart
+    if ((expr.name === 'cot' || expr.name === 'ctg') && expr.args.length === 1) {
+      const x = this.genExpr(expr.args[0]!);
+      return `(1.0/tan(${x}))`;
+    }
+    if (expr.name === 'sec' && expr.args.length === 1) {
+      const x = this.genExpr(expr.args[0]!);
+      return `(1.0/cos(${x}))`;
+    }
+    if (expr.name === 'csc' && expr.args.length === 1) {
+      const x = this.genExpr(expr.args[0]!);
+      return `(1.0/sin(${x}))`;
+    }
+    // arccot(x) = atan2(1, x) — handles x=0 correctly (returns π/2)
+    if ((expr.name === 'arccot' || expr.name === 'acot') && expr.args.length === 1) {
+      const x = this.genExpr(expr.args[0]!);
+      return `atan2(1.0, ${x})`;
+    }
+    if (expr.name === 'coth' && expr.args.length === 1) {
+      const x = this.genExpr(expr.args[0]!);
+      return `(1.0/tanh(${x}))`;
+    }
+
     // dot(v, w) → mc_dot(v, w, len)
     if (expr.name === 'dot' && expr.args.length === 2) {
       const a = this.genExpr(expr.args[0]!);
@@ -1337,24 +1360,25 @@ export class CGenerator {
 
 const FUNC_MAP: ReadonlyMap<string, string> = new Map([
   ['sin',    'sin'],   ['cos',    'cos'],   ['tan',    'tan'],
-  ['cot',    '(1.0/tan)'], // special — handled below
+  // cot/sec/csc/arccot handled as special cases in genFuncCall
   ['asin',   'asin'],  ['acos',   'acos'],  ['atan',   'atan'],
   ['arcsin', 'asin'],  ['arccos', 'acos'],  ['arctan', 'atan'],
   ['sinh',   'sinh'],  ['cosh',   'cosh'],  ['tanh',   'tanh'],
-  ['ln',     'log'],   ['log',    'log'],   ['log10',  'log10'],
-  ['exp',    'exp'],   ['sqrt',   'sqrt'],  ['abs',    'fabs'],
-  ['floor',  'floor'], ['ceil',   'ceil'],  ['round',  'round'],
+  ['asinh',  'asinh'], ['acosh',  'acosh'], ['atanh',  'atanh'],
+  ['ln',     'log'],   ['log',    'log'],   ['lg',     'log10'],  ['log10',  'log10'],
+  ['log2',   'log2'],
+  ['exp',    'exp'],   ['sqrt',   'sqrt'],  ['cbrt',   'cbrt'],  ['abs',    'fabs'],
+  ['floor',  'floor'], ['ceil',   'ceil'],  ['round',  'round'],  ['trunc',  'trunc'],
   ['fabs',   'fabs'],  ['pow',    'pow'],   ['fmod',   'fmod'],
   ['fmin',   'fmin'],  ['fmax',   'fmax'],
   ['min',    'fmin'],  ['max',    'fmax'],
   ['std',    'mc_std'],  ['mean',   'mc_mean'],
-  ['tgamma', 'tgamma'],  ['erf',    'erf'],
+  ['gamma',  'tgamma'],  ['tgamma', 'tgamma'],  ['erf', 'erf'],  ['erfc', 'erfc'],
   ['gcd',    'mc_gcd'],  ['lcm',    'mc_lcm'],
-  ['sgn',    'mc_sgn'],  ['binom',  'mc_binom'],
+  ['sgn',    'mc_sgn'],  ['sign',   'mc_sgn'],  ['binom',  'mc_binom'],
   ['norm',   'mc_norm'],
   ['dot',    'mc_dot'],  ['cross',  'mc_cross3'],
   ['sum',    'mc_sum'],  ['product','mc_product'],
-  ['min',    'fmin'],    ['max',    'fmax'],
   ['is_nan',    'isnan'],  ['is_inf',    'isinf'],  ['is_finite', 'isfinite'],
   ['atan2',  'atan2'],   ['hypot', 'hypot'],
 ]);

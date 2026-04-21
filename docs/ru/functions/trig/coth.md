@@ -19,7 +19,7 @@ f(x) = coth(x)
 ```
 
 ```c
-mc_num f(mc_num x) { return cosh(x) / sinh(x); }
+mc_num f(mc_num x) { return (1.0/tanh(x)); }
 ```
 
 ---

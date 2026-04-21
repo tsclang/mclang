@@ -8,7 +8,7 @@
 arccot(x: num) → num
 ```
 
-Реализован как `π/2 - arctan(x)`.
+Реализован через `atan2(1, x)` — корректно обрабатывает `x = 0` (возвращает `π/2`).
 
 ---
 
@@ -19,7 +19,7 @@ f(x) = arccot(x)
 ```
 
 ```c
-mc_num f(mc_num x) { return M_PI / 2.0 - atan(x); }
+mc_num f(mc_num x) { return atan2(1.0, x); }
 ```
 
 ---

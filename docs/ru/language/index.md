@@ -14,6 +14,9 @@ mclang — декларативный язык математических вы
 | [Автоматические точки с запятой (ASI)](syntax/asi.md) | когда `;` вставляется автоматически |
 | [Комментарии](syntax/comments.md) | `//` и `#` |
 | [Перенос строк](syntax/line-continuation.md) | многострочные выражения |
+| [if / else](syntax/if-else.md) | ветвление, `\begin{cases}` |
+| [for](syntax/for.md) | цикл по диапазону `lo..hi` |
+| [while](syntax/while.md) | цикл с условием |
 
 ### Функции
 
