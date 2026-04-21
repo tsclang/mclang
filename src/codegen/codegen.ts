@@ -840,6 +840,12 @@ export class CGenerator {
         return `mc_scale(${s}, ${v}, ${tmp}, ${len})`;
       }
     }
+    // e^x → exp(x) optimization
+    if ((expr.op === '^' || expr.op === '**') &&
+        expr.left.kind === 'IdentExpr' && (expr.left as import('../ast/nodes.js').IdentExpr).name === 'e') {
+      const r2 = this.genExpr(expr.right);
+      return `exp(${r2})`;
+    }
     const l = this.genExpr(expr.left);
     const r = this.genExpr(expr.right);
     switch (expr.op) {
@@ -1225,20 +1231,32 @@ export class CGenerator {
       this.emit('}');
       return tmpAcc;
     } else {
-      // array iteration: \sum_{x \in v}
+      // array iteration: \sum_{x \in v} / \min_{x \in v} / \max_{x \in v}
       const arrName = translit(expr.array ?? '_arr');
-      const body = this.genExpr(expr.body);
-      const op = expr.op === 'sum' ? '+=' : '*=';
-      const init = expr.op === 'prod' ? '1.0' : '0.0';
       const tmpIdx = `_i_${this._tmpIdx++}`;
 
-      this.emit(`mc_num ${tmpAcc} = ${init};`);
-      this.emit(`for (int ${tmpIdx} = 0; ${tmpIdx} < ${arrName}_len; ${tmpIdx}++) {`);
-      this.indent++;
-      this.emit(`mc_num ${v} = ${arrName}[${tmpIdx}];`);
-      this.emit(`${tmpAcc} ${op} ${body};`);
-      this.indent--;
-      this.emit('}');
+      if (expr.op === 'min' || expr.op === 'max') {
+        const cmp = expr.op === 'min' ? '<' : '>';
+        this.emit(`mc_num ${tmpAcc} = ${arrName}[0];`);
+        this.emit(`for (int ${tmpIdx} = 1; ${tmpIdx} < ${arrName}_len; ${tmpIdx}++) {`);
+        this.indent++;
+        this.emit(`mc_num ${v} = ${arrName}[${tmpIdx}];`);
+        const body = this.genExpr(expr.body);
+        this.emit(`if (${body} ${cmp} ${tmpAcc}) ${tmpAcc} = ${body};`);
+        this.indent--;
+        this.emit('}');
+      } else {
+        const op = expr.op === 'sum' ? '+=' : '*=';
+        const init = expr.op === 'prod' ? '1.0' : '0.0';
+        this.emit(`mc_num ${tmpAcc} = ${init};`);
+        this.emit(`for (int ${tmpIdx} = 0; ${tmpIdx} < ${arrName}_len; ${tmpIdx}++) {`);
+        this.indent++;
+        this.emit(`mc_num ${v} = ${arrName}[${tmpIdx}];`);
+        const body = this.genExpr(expr.body);
+        this.emit(`${tmpAcc} ${op} ${body};`);
+        this.indent--;
+        this.emit('}');
+      }
       return tmpAcc;
     }
   }

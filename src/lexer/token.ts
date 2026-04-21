@@ -152,6 +152,10 @@ export const enum TokenKind {
   Gamma = '\\Gamma',     // tgamma (if followed by {)
   GammaId = '\\Gamma_id',// identifier (if not followed by {)
   Bar = '\\bar',         // mean
+  Abs2 = '\\abs',        // \abs{x} → AbsExpr
+  LatexMod = '\\mod',    // a \mod b → fmod(a,b)
+  LatexMin = '\\min',    // \min(a,b) or \min_{x \in v}
+  LatexMax = '\\max',    // \max(a,b) or \max_{x \in v}
   CasesRowSep = 'CASES_ROW_SEP',  // \\ row separator inside \begin{cases}
 
   // Indentation
@@ -244,6 +248,10 @@ export const LATEX_COMMANDS: ReadonlyMap<string, TokenKind> = new Map([
   ['\\times',  TokenKind.Times],
   ['\\pm',     TokenKind.Pm],
   ['\\bar',    TokenKind.Bar],
+  ['\\abs',    TokenKind.Abs2],
+  ['\\mod',    TokenKind.LatexMod],
+  ['\\min',    TokenKind.LatexMin],
+  ['\\max',    TokenKind.LatexMax],
   // \sigma and \Gamma handled via lookahead in lexer
 ]);
 
@@ -256,6 +264,7 @@ export const LATEX_UNICODE: ReadonlyMap<string, string> = new Map([
   ['\\lVert',  '‖'],
   ['\\rVert',  '‖'],
   ['\\neq',    '≠'],
+  ['\\ne',     '≠'],
   ['\\leq',    '≤'],
   ['\\geq',    '≥'],
   ['\\cdot',   '⋅'],

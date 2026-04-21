@@ -41,3 +41,4 @@ weighted(v: num[], w: num[]) = \sum_{i \in 0..v.length-1} v[i] * w[i]
 ## Смотри aussi
 
 - [\sum по диапазону](sum-range.md) · [\prod по массиву](prod-array.md)
+- [\min по массиву](min-array.md) · [\max по массиву](max-array.md)

@@ -5,8 +5,10 @@
 ## Сигнатуры
 
 ```mc
-max(v: num[]) → num
-max(a: num, b: num) → num
+max(v: num[]) → num        // максимум по массиву
+max(a: num, b: num) → num  // максимум двух значений
+\max(a, b)                 // LaTeX-синоним
+\max_{x \in v} expr        // LaTeX-агрегатор по массиву
 ```
 
 ---
@@ -16,6 +18,9 @@ max(a: num, b: num) → num
 ```mc
 f(v: num[]) = max(v)
 g(a, b) = max(a, b)
+
+// LaTeX-стиль: максимум произвольного выражения по элементам
+peak(v: num[]) = \max_{x \in v} x^2
 ```
 
 ```c

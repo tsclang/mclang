@@ -27,6 +27,18 @@ const VALUE_TOKENS = new Set<TokenKind>([
   TokenKind.KwInf,
 ]);
 
+// LaTeX commands that map directly to identifier names (no special token needed)
+const LATEX_FUNC_ALIASES: ReadonlyMap<string, string> = new Map([
+  // Russian/alternative trig names as LaTeX commands
+  ['\\tg',     'tan'],   ['\\ctg',    'cot'],   ['\\sh',     'sinh'],
+  ['\\ch',     'cosh'],  ['\\th',     'tanh'],  ['\\cth',    'coth'],
+  ['\\arctg',  'atan'],  ['\\arcctg', 'acot'],  ['\\arccot', 'acot'],
+  // Math functions available as LaTeX commands
+  ['\\erf',    'erf'],   ['\\det',    'det'],   ['\\deg',    'deg'],
+  // \top — used only as postfix in A^{\top} (transpose marker)
+  ['\\top',    'top'],
+]);
+
 // Greek letters → Unicode identifiers
 const GREEK_LETTERS: ReadonlyMap<string, string> = new Map([
   ['\\alpha',   'α'],
@@ -444,8 +456,20 @@ export class Lexer {
       return;
     }
 
-    // \text{word} — LaTeX text mode; emit 'if'/'otherwise' keywords or identifier
-    if (cmd === '\\text') {
+    // \lvert and \rvert — absolute value delimiters (like |)
+    if (cmd === '\\lvert') {
+      const end = this.capturePos();
+      this.emitToken(TokenKind.AbsOpen, '|', start, end);
+      return;
+    }
+    if (cmd === '\\rvert') {
+      const end = this.capturePos();
+      this.emitToken(TokenKind.AbsClose, '|', start, end);
+      return;
+    }
+
+    // \text{word} or \operatorname{word} — LaTeX text mode; emit keywords or identifier
+    if (cmd === '\\text' || cmd === '\\operatorname') {
       if (this.current() === '{') {
         this.advance(); // consume {
         let word = '';
@@ -524,6 +548,14 @@ export class Lexer {
     if (greek !== undefined) {
       const end = this.capturePos();
       this.emitToken(TokenKind.Identifier, greek, start, end);
+      return;
+    }
+
+    // LaTeX function aliases → emit as Identifier with canonical name
+    const aliasName = LATEX_FUNC_ALIASES.get(cmd);
+    if (aliasName !== undefined) {
+      const end = this.capturePos();
+      this.emitToken(TokenKind.Identifier, aliasName, start, end);
       return;
     }
 

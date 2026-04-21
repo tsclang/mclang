@@ -627,7 +627,9 @@ export class Parser {
       k === TokenKind.Arcsin || k === TokenKind.Arccos || k === TokenKind.Arctan ||
       k === TokenKind.Sinh || k === TokenKind.Cosh || k === TokenKind.Tanh ||
       k === TokenKind.Log || k === TokenKind.Ln || k === TokenKind.Lg ||
-      k === TokenKind.Gcd || k === TokenKind.Lcm
+      k === TokenKind.Gcd || k === TokenKind.Lcm ||
+      k === TokenKind.Abs2 ||
+      k === TokenKind.LatexMin || k === TokenKind.LatexMax
     );
   }
 
@@ -636,7 +638,7 @@ export class Parser {
     return (
       k === TokenKind.Star || k === TokenKind.Dot || k === TokenKind.DotStar ||
       k === TokenKind.Slash || k === TokenKind.Divide ||
-      k === TokenKind.Percent || k === TokenKind.KwMod
+      k === TokenKind.Percent || k === TokenKind.KwMod || k === TokenKind.LatexMod
     );
   }
 
@@ -648,7 +650,8 @@ export class Parser {
       case TokenKind.Slash:   return '/';
       case TokenKind.Divide:  return '÷';
       case TokenKind.Percent:
-      case TokenKind.KwMod:   return '%';
+      case TokenKind.KwMod:
+      case TokenKind.LatexMod: return '%';
       default:                return '*';
     }
   }
@@ -666,6 +669,17 @@ export class Parser {
       } else {
         // right-associative: x^y^z = x^(y^z)
         exp = this.parsePowExpr();
+      }
+      // A^{\top} or A^{T} → transpose(A)
+      if (exp.kind === 'IdentExpr' && (exp.name === 'top' || exp.name === 'T')) {
+        const span = this.mkSpan(base.span.start, this.prev().span.end);
+        return { kind: 'FuncCallExpr', name: 'transpose', args: [base], span };
+      }
+      // A^{-1} → inv(A)
+      if (exp.kind === 'UnaryExpr' && exp.op === '-' &&
+          exp.operand.kind === 'NumberLit' && exp.operand.value === 1) {
+        const span = this.mkSpan(base.span.start, this.prev().span.end);
+        return { kind: 'FuncCallExpr', name: 'inv', args: [base], span };
       }
       const span = this.mkSpan(base.span.start, exp.span.end);
       return { kind: 'BinaryExpr', op: '^', left: base, right: exp, span };
@@ -793,6 +807,17 @@ export class Parser {
       this.advance();
       const operand = this.parseExpr();
       this.expect(TokenKind.AbsClose);
+      const span = this.mkSpan(start, this.prev().span.end);
+      return { kind: 'AbsExpr', operand, span };
+    }
+
+    // \abs{x} — absolute value (LaTeX brace syntax)
+    if (t.kind === TokenKind.Abs2) {
+      const start = t.span.start;
+      this.advance();
+      this.expect(TokenKind.LBrace);
+      const operand = this.parseExpr();
+      this.expect(TokenKind.RBrace);
       const span = this.mkSpan(start, this.prev().span.end);
       return { kind: 'AbsExpr', operand, span };
     }
@@ -1179,14 +1204,20 @@ export class Parser {
       kind === TokenKind.Arcsin || kind === TokenKind.Arccos || kind === TokenKind.Arctan ||
       kind === TokenKind.Sinh || kind === TokenKind.Cosh || kind === TokenKind.Tanh ||
       kind === TokenKind.Log || kind === TokenKind.Lg || kind === TokenKind.Ln ||
-      kind === TokenKind.Gcd || kind === TokenKind.Lcm || kind === TokenKind.Binom
+      kind === TokenKind.Gcd || kind === TokenKind.Lcm || kind === TokenKind.Binom ||
+      kind === TokenKind.LatexMin || kind === TokenKind.LatexMax
     );
   }
 
-  private parseBuiltinFnCall(): FuncCallExpr {
+  private parseBuiltinFnCall(): FuncCallExpr | SumExpr {
     const t = this.advance();
     const name = t.value.replace(/^\\/, ''); // strip leading backslash
     const start = t.span.start;
+
+    // \min / \max with subscript → SumExpr aggregator: \min_{x \in v} expr
+    if ((name === 'min' || name === 'max') && this.checkIdentUnderscore()) {
+      return this.parseSumExprWith(name as 'min' | 'max', start);
+    }
 
     // \log_{base}{x} or \log{base}{x} → __log_base(x, base)
     if ((name === 'log' || name === 'lg') && (this.checkIdentUnderscore() || this.check(TokenKind.LBrace))) {
@@ -1242,8 +1273,28 @@ export class Parser {
       return { kind: 'FuncCallExpr', name, args, span };
     }
 
-    // Bare keyword (no args) — treat as identifier
+    // \sin x — bare identifier atom as argument (LaTeX no-paren form)
+    if (this.check(TokenKind.Identifier) || this.check(TokenKind.Number)) {
+      const arg = this.parsePrimary();
+      const span = this.mkSpan(start, this.prev().span.end);
+      return { kind: 'FuncCallExpr', name, args: [arg], span };
+    }
+
+    // Bare keyword (no args) — treat as zero-arg call (identifier)
     return { kind: 'FuncCallExpr', name, args: [], span: t.span };
+  }
+
+  // \min_{x \in v} expr  or  \max_{x \in v} expr
+  private parseSumExprWith(op: 'min' | 'max', start: Position): SumExpr {
+    this.advance(); // consume '_'
+    this.expect(TokenKind.LBrace);
+    const varName = this.expectIdent();
+    this.expect(TokenKind.In2);
+    const array = this.expectIdent();
+    this.expect(TokenKind.RBrace);
+    const body = this.parseExpr();
+    const span = this.mkSpan(start, body.span.end);
+    return { kind: 'SumExpr', op, iterKind: 'array', var: varName, array, body, span };
   }
 
   // ── if expression (inline) ───────────────────────────────────────────────────

@@ -1,13 +1,13 @@
-# A^\top / A^{\top}
+# A^{\top} — транспонирование
 
 ---
 
 ## Синтаксис
 
 ```latex
-A^\top
-A^{\top}
-A^T        // неформальная запись
+A^{\top}   // LaTeX-стиль
+A^{T}      // краткая форма
+transpose(A)  // вызов функции
 ```
 
 ---
@@ -15,7 +15,8 @@ A^T        // неформальная запись
 ## Трансляция
 
 ```mc
-A^\top   →   transpose(A)   →   mc_transpose(A, B, rows, cols)
+A^{\top}   →   transpose(A)   →   mc_transpose(A, B, rows, cols)
+A^{T}      →   transpose(A)   →   mc_transpose(A, B, rows, cols)
 ```
 
 ---
@@ -23,8 +24,8 @@ A^\top   →   transpose(A)   →   mc_transpose(A, B, rows, cols)
 ## Примеры
 
 ```mc
-gram(A: num[][]) = A^\top \cdot A
-sym(A: num[][]) = (A + A^\top) / 2
+gram(A: num[][]) = A^{\top} \cdot A
+sym(A: num[][]) = (A + A^{\top}) / 2
 ```
 
 ---
