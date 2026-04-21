@@ -3,6 +3,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, basename, dirname, join } from 'node:path';
 import { Lexer } from '../lexer/index.js';
 import { parseSource } from '../parser/index.js';
+import { TokenKind } from '../lexer/token.js';
+import { resolveImports } from '../import/resolver.js';
 import { generateC } from '../codegen/index.js';
 import type { CgenTarget, CgenPrecision } from '../codegen/index.js';
 import {
@@ -109,7 +111,11 @@ function main(): void {
       return;
     }
 
-    const ast = parseSource(tokens);
+    const hasImports = tokens.some(t => t.kind === TokenKind.KwImport);
+    const absInputFwd = absInput.replace(/\\/g, '/');
+    const ast = hasImports
+      ? resolveImports(absInputFwd, source, (p) => readFileSync(p, 'utf-8'))
+      : parseSource(tokens);
     const { c, h } = generateC(ast, { target: targetArg, precision: precisionArg });
 
     // Determine output paths

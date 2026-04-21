@@ -382,7 +382,8 @@ export class CGenerator {
   private genFuncDef(node: FuncDef): void {
     this.typeEnv = new Map();
     for (const p of node.params) {
-      if (p.type) this.typeEnv.set(p.name, p.type);
+      // Register all params (typed or not) so builtin constants don't shadow them
+      this.typeEnv.set(p.name, p.type ?? { kind: 'NumType', dims: 0 });
     }
 
     const isPrivate = node.name.startsWith('_');
@@ -506,9 +507,23 @@ export class CGenerator {
     return parts.length > 0 ? parts : ['void'];
   }
 
-  private funcReturnType(_node: FuncDef): string {
-    // In Phase 3 everything returns mc_num (or mc_num* for \pm)
+  private funcReturnType(node: FuncDef): string {
+    const last = node.body[node.body.length - 1];
+    if (last?.kind === 'ExprStmt' && this.exprReturnsPtr(last.expr)) {
+      return 'mc_num*';
+    }
     return 'mc_num';
+  }
+
+  private exprReturnsPtr(expr: Expr): boolean {
+    switch (expr.kind) {
+      case 'MatrixSlice': return true;
+      case 'SliceExpr':   return true;
+      case 'PmExpr':      return true;
+      case 'FuncCallExpr':
+        return ['cross', 'transpose', 'inv', 'I', 'zeros', 'ones'].includes(expr.name);
+      default: return false;
+    }
   }
 
   // ── Where block ─────────────────────────────────────────────────────────────
@@ -700,8 +715,11 @@ export class CGenerator {
   private genIdent(expr: IdentExpr): string {
     const override = this.varOverride.get(expr.name);
     if (override !== undefined) return override;
-    const builtin = BUILTIN_CONSTS.get(expr.name);
-    if (builtin) return builtin;
+    // Only substitute builtin constants if the name is not a local param/variable
+    if (!this.typeEnv.has(expr.name)) {
+      const builtin = BUILTIN_CONSTS.get(expr.name);
+      if (builtin) return builtin;
+    }
     return translit(expr.name);
   }
 
@@ -793,7 +811,10 @@ export class CGenerator {
   private genCross(expr: BinaryExpr): string {
     const l = this.genExpr(expr.left);
     const r = this.genExpr(expr.right);
-    return `mc_cross3(${l}, ${r})`;
+    const tmp = `_tmp_${this._tmpIdx++}`;
+    this.emit(`static mc_num ${tmp}[3];`);
+    this.emit(`mc_cross3(${l}, ${r}, ${tmp});`);
+    return tmp;
   }
 
   private genElemWise(op: string, left: Expr, right: Expr): string {
@@ -884,6 +905,24 @@ export class CGenerator {
       return `(log(${x}) / log(${base}))`;
     }
 
+    // dot(v, w) → mc_dot(v, w, len)
+    if (expr.name === 'dot' && expr.args.length === 2) {
+      const a = this.genExpr(expr.args[0]!);
+      const b = this.genExpr(expr.args[1]!);
+      const len = this.inferLenExpr(expr.args[0]!);
+      return `mc_dot(${a}, ${b}, ${len})`;
+    }
+
+    // cross(v, w) → mc_cross3(v, w, tmp); returns tmp
+    if (expr.name === 'cross' && expr.args.length === 2) {
+      const a = this.genExpr(expr.args[0]!);
+      const b = this.genExpr(expr.args[1]!);
+      const tmp = `_tmp_${this._tmpIdx++}`;
+      this.emit(`static mc_num ${tmp}[3];`);
+      this.emit(`mc_cross3(${a}, ${b}, ${tmp});`);
+      return tmp;
+    }
+
     // min/max dispatch: 1 array arg → mc_min_arr / mc_max_arr; 2 scalar args → fmin/fmax
     if ((expr.name === 'min' || expr.name === 'max') && expr.args.length === 1) {
       const arg = expr.args[0]!;
@@ -966,7 +1005,7 @@ export class CGenerator {
       // m[:, j] — extract column j into a temp array
       const j = this.genExpr(expr.colIdx);
       const tmp = `_col_${this._tmpIdx++}`;
-      this.emit(`mc_num ${tmp}[256];`);
+      this.emit(`static mc_num ${tmp}[256];`);
       const i = `_i_${this._tmpIdx++}`;
       this.emit(`for (int ${i} = 0; ${i} < ${rows}; ${i}++) ${tmp}[${i}] = ${obj}[(int)(${i})*${cols}+(int)(${j})];`);
       return tmp;

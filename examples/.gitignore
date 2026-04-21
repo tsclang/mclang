@@ -1,0 +1,6 @@
+# Generated from .mc sources — do not commit
+*/mc/*.c
+*/mc/*.h
+
+# Build artifacts
+*/build/

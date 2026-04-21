@@ -9,12 +9,14 @@ export declare class Lexer {
     private readonly indentStack;
     private lastTokenKind;
     private atLineStart;
+    private parenDepth;
     constructor(source: string, file?: string);
     tokenize(): Token[];
     private scanToken;
     private handleIndentation;
     private handleNewline;
     private skipLineComment;
+    private scanString;
     private scanNumber;
     private scanLatex;
     private scanIdentifier;

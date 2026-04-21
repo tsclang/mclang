@@ -72,6 +72,7 @@ export class Lexer {
     indentStack = [0];
     lastTokenKind = null;
     atLineStart = true;
+    parenDepth = 0;
     constructor(source, file = '<input>') {
         this.source = source;
         this.file = file;
@@ -114,6 +115,11 @@ export class Lexer {
             this.skipLineComment();
             return;
         }
+        // String literals "..." or '...'
+        if (c === '"' || c === "'") {
+            this.scanString(c);
+            return;
+        }
         // Numbers
         if (this.isDigit(c) || (c === '.' && this.isDigit(this.peek(1)))) {
             this.scanNumber();
@@ -129,13 +135,22 @@ export class Lexer {
             this.scanIdentifier();
             return;
         }
+        // Period: member access `.` (only when not `..`)
         // Multi-char operators
         if (c === '*' && this.peek(1) === '*') {
             this.pushTokenAt("**" /* TokenKind.StarStar */, '**', 2);
             return;
         }
+        if (c === '.' && this.peek(1) === '*') {
+            this.pushTokenAt(".*" /* TokenKind.DotStar */, '.*', 2);
+            return;
+        }
         if (c === '.' && this.peek(1) === '.') {
             this.pushTokenAt(".." /* TokenKind.Dot2 */, '..', 2);
+            return;
+        }
+        if (c === '.' && this.peek(1) !== '.') {
+            this.pushTokenAt("." /* TokenKind.Period */, '.', 1);
             return;
         }
         if (c === '-' && this.peek(1) === '>') {
@@ -162,6 +177,11 @@ export class Lexer {
             this.pushTokenAt(">=" /* TokenKind.Geq */, '>=', 2);
             return;
         }
+        // <> alias for !=
+        if (c === '<' && this.peek(1) === '>') {
+            this.pushTokenAt("!=" /* TokenKind.Neq */, '<>', 2);
+            return;
+        }
         if (c === '&' && this.peek(1) === '&') {
             this.pushTokenAt("&&" /* TokenKind.And */, '&&', 2);
             return;
@@ -177,7 +197,14 @@ export class Lexer {
         }
         // Postfix `!` (factorial) vs `!=` handled above
         // If we reach here and prev was a value token, it's FACTORIAL
+        // Exception: `!in` is a range-exclusion operator
         if (c === '!') {
+            const next2 = this.source.slice(this.pos + 1, this.pos + 3);
+            const c3 = this.source[this.pos + 3] ?? '';
+            if (next2 === 'in' && !/[a-zA-Z0-9_]/.test(c3)) {
+                this.pushTokenAt("!in" /* TokenKind.BangIn */, '!in', 3);
+                return;
+            }
             if (this.lastTokenKind !== null && VALUE_TOKENS.has(this.lastTokenKind)) {
                 this.pushTokenAt("FACTORIAL" /* TokenKind.Factorial */, '!', 1);
             }
@@ -260,7 +287,8 @@ export class Lexer {
     }
     handleNewline() {
         // Emit NEWLINE only if last meaningful token was a value (ASI)
-        if (this.lastTokenKind !== null && VALUE_TOKENS.has(this.lastTokenKind)) {
+        // and we are not inside any open paren/bracket/brace (line continuation)
+        if (this.parenDepth === 0 && this.lastTokenKind !== null && VALUE_TOKENS.has(this.lastTokenKind)) {
             this.pushToken("NEWLINE" /* TokenKind.Newline */, '\n');
         }
         this.advance();
@@ -272,6 +300,25 @@ export class Lexer {
         while (this.pos < this.source.length && this.current() !== '\n') {
             this.advance();
         }
+    }
+    scanString(quote) {
+        const start = this.capturePos();
+        this.advance(); // consume opening quote
+        let value = '';
+        while (this.pos < this.source.length && this.source[this.pos] !== quote) {
+            if (this.source[this.pos] === '\\') {
+                this.advance();
+                const esc = this.source[this.pos] ?? '';
+                value += esc === 'n' ? '\n' : esc === 't' ? '\t' : esc;
+            }
+            else {
+                value += this.source[this.pos];
+            }
+            this.advance();
+        }
+        this.advance(); // consume closing quote
+        const end = this.capturePos();
+        this.tokens.push(token("string_lit" /* TokenKind.StringLit */, value, { start, end, file: this.file }));
     }
     scanNumber() {
         const start = this.capturePos();
@@ -321,6 +368,29 @@ export class Lexer {
         while (this.pos < this.source.length && /[a-zA-Z]/.test(this.current())) {
             cmd += this.current();
             this.advance();
+        }
+        // \mathbb{N/Z/R/Q/C} → set tokens
+        if (cmd === '\\mathbb') {
+            if (this.current() === '{') {
+                this.advance(); // consume {
+                const letter = this.current();
+                this.advance(); // consume letter
+                if (this.current() === '}')
+                    this.advance(); // consume }
+                const end = this.capturePos();
+                const setKind = {
+                    N: "SET_N" /* TokenKind.KwSetN */, Z: "SET_Z" /* TokenKind.KwSetZ */,
+                    R: "SET_R" /* TokenKind.KwSetR */, Q: "SET_Q" /* TokenKind.KwSetQ */, C: "SET_C" /* TokenKind.KwSetC */,
+                };
+                const k = setKind[letter];
+                if (k !== undefined) {
+                    this.emitToken(k, `\\mathbb{${letter}}`, start, end);
+                    return;
+                }
+            }
+            const end = this.capturePos();
+            this.emitToken("Identifier" /* TokenKind.Identifier */, '\\mathbb', start, end);
+            return;
         }
         // Special lookahead: \sigma{ → std function, \sigma → identifier
         if (cmd === '\\sigma') {
@@ -385,6 +455,16 @@ export class Lexer {
             this.col += charLen;
         }
         const end = this.capturePos();
+        // Blackboard-bold set symbols (ℕ ℤ ℝ ℚ ℂ) — caught by isIdentStart as Unicode letters
+        const SET_SYMBOLS = {
+            'ℕ': "SET_N" /* TokenKind.KwSetN */, 'ℤ': "SET_Z" /* TokenKind.KwSetZ */,
+            'ℝ': "SET_R" /* TokenKind.KwSetR */, 'ℚ': "SET_Q" /* TokenKind.KwSetQ */, 'ℂ': "SET_C" /* TokenKind.KwSetC */,
+        };
+        const setKind = SET_SYMBOLS[value];
+        if (setKind !== undefined) {
+            this.emitToken(setKind, value, start, end);
+            return;
+        }
         // Check trig synonyms
         const canonical = TRIG_SYNONYMS.get(value);
         if (canonical !== undefined) {
@@ -450,6 +530,16 @@ export class Lexer {
                 ? "\u2016" /* TokenKind.NormClose */
                 : "\u2016" /* TokenKind.NormOpen */;
             case '°': return "DEGREE" /* TokenKind.Degree */;
+            case '∑': return "\\sum" /* TokenKind.Sum */;
+            case '∏': return "\\prod" /* TokenKind.Prod */;
+            // Unicode logical operators
+            case '∧': return "&&" /* TokenKind.And */; // logical AND → &&
+            case '∨': return "||" /* TokenKind.Or */; // logical OR  → ||
+            case '⊕': return "xor" /* TokenKind.KwXor */; // logical XOR → xor
+            case '¬': return "not" /* TokenKind.KwNot */; // logical NOT → !
+            // Set membership operators (also handled via \in / \notin LaTeX)
+            case '∈': return "\\in" /* TokenKind.In2 */;
+            case '∉': return "\\notin" /* TokenKind.NotIn */;
             default: return null;
         }
     }
@@ -474,6 +564,14 @@ export class Lexer {
         const sp = { start, end, file: this.file };
         this.tokens.push(token(kind, value, sp));
         this.lastTokenKind = kind;
+        // Track nesting depth for line-continuation (no NEWLINE inside open brackets)
+        if (kind === "(" /* TokenKind.LParen */ || kind === "[" /* TokenKind.LBracket */ || kind === "{" /* TokenKind.LBrace */) {
+            this.parenDepth++;
+        }
+        else if (kind === ")" /* TokenKind.RParen */ || kind === "]" /* TokenKind.RBracket */ || kind === "}" /* TokenKind.RBrace */) {
+            if (this.parenDepth > 0)
+                this.parenDepth--;
+        }
     }
     pushToken(kind, value) {
         const pos = this.capturePos();

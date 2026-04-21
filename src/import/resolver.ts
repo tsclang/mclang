@@ -1,4 +1,20 @@
-import { posix as nodePath } from 'path';
+// Cross-platform path helpers (forward-slash based, works with both POSIX and Windows paths)
+function pathDirname(p: string): string {
+  const i = p.lastIndexOf('/');
+  return i >= 0 ? p.slice(0, i) : '.';
+}
+
+function pathResolve(dir: string, rel: string): string {
+  if (rel.startsWith('/')) return rel;
+  const base = dir.endsWith('/') ? dir : dir + '/';
+  const parts = (base + rel).split('/');
+  const out: string[] = [];
+  for (const part of parts) {
+    if (part === '..') out.pop();
+    else if (part !== '.') out.push(part);
+  }
+  return out.join('/');
+}
 import { Lexer } from '../lexer/lexer.js';
 import { parseSource } from '../parser/parser.js';
 import type { File, TopLevelNode, FuncDef, ConstDef, ImportDef } from '../ast/nodes.js';
@@ -56,8 +72,8 @@ export function resolveImports(
       if (node.kind !== 'ImportDef') continue;
 
       const imp = node as ImportDef;
-      const dir = nodePath.dirname(absPath);
-      const depPath = nodePath.resolve(dir, imp.path);
+      const dir = pathDirname(absPath);
+      const depPath = pathResolve(dir, imp.path);
 
       let depSource: string;
       try {

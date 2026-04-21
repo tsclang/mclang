@@ -22,6 +22,16 @@ export const KEYWORDS = new Map([
     ['solve', "solve" /* TokenKind.KwSolve */],
     ['nan', "nan" /* TokenKind.KwNaN */],
     ['inf', "inf" /* TokenKind.KwInf */],
+    ['and', "and" /* TokenKind.KwAnd */],
+    ['or', "or" /* TokenKind.KwOr */],
+    ['not', "not" /* TokenKind.KwNot */],
+    ['xor', "xor" /* TokenKind.KwXor */],
+    ['step', "step" /* TokenKind.KwStep */],
+    ['mod', "mod" /* TokenKind.KwMod */],
+    ['import', "import" /* TokenKind.KwImport */],
+    ['from', "from" /* TokenKind.KwFrom */],
+    ['as', "as" /* TokenKind.KwAs */],
+    ['table', "table" /* TokenKind.KwTable */],
 ]);
 // LaTeX commands → token kind
 export const LATEX_COMMANDS = new Map([

@@ -19,6 +19,22 @@ export declare const enum TokenKind {
     KwSolve = "solve",
     KwNaN = "nan",
     KwInf = "inf",
+    KwAnd = "and",
+    KwOr = "or",
+    KwNot = "not",
+    KwXor = "xor",
+    KwStep = "step",
+    KwMod = "mod",
+    KwImport = "import",
+    KwFrom = "from",
+    KwAs = "as",
+    KwTable = "table",
+    KwSetN = "SET_N",
+    KwSetZ = "SET_Z",
+    KwSetR = "SET_R",
+    KwSetQ = "SET_Q",
+    KwSetC = "SET_C",
+    StringLit = "string_lit",
     Plus = "+",
     Minus = "-",
     Star = "*",
@@ -26,6 +42,7 @@ export declare const enum TokenKind {
     Percent = "%",
     Caret = "^",// exponent (also x^n)
     StarStar = "**",// exponent alternative
+    DotStar = ".*",// element-wise multiply
     Dot = "\u22C5",// multiply / dot product / matrix multiply
     Divide = "\u00F7",// division alias
     Cross = "\u2A2F",// cross product (vectors)
@@ -42,6 +59,7 @@ export declare const enum TokenKind {
     And = "&&",
     Or = "||",
     Not = "!",// unary
+    BangIn = "!in",// range exclusion: x !in [a, b]
     Assign = "=",
     ColonEq = ":=",
     LParen = "(",
@@ -56,6 +74,7 @@ export declare const enum TokenKind {
     Dot2 = "..",// range a..b
     Arrow = "->",
     Backslash = "\\",
+    Period = ".",// member access (v.length)
     AbsOpen = "|",// context-sensitive: open abs
     AbsClose = "|",// context-sensitive: close abs
     NormOpen = "\u2016",// \lVert
