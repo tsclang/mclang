@@ -8,6 +8,29 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Temp
+# Build artifacts
 *.o
+*.obj
+*.iobj
 *.tmp
+*.exe
+*.so
+*.dll
+*.pdb
+*.exp
+*.lib
+*.node
+*.ipdb
+*.rmeta
+*.rlib
+*.d
+
+# Rust build cache
+examples/*/src/rust/target/
+
+# Native addon build output
+examples/*/mc/build/
+examples/*/mc/*.node
+
+# Demo binaries
+examples/*/build/
