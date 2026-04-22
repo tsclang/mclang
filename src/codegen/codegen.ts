@@ -1020,11 +1020,21 @@ export class CGenerator {
       this.emit(`static mc_num ${tmp}[256];`);
       return `mc_inv(${m}, ${tmp}, ${n})`;
     }
-    if (expr.name === 'I' && expr.args.length === 1) {
+    if ((expr.name === 'I' || expr.name === 'identity') && expr.args.length === 1) {
       const n = this.genExpr(expr.args[0]!);
       const tmp = `_tmp_${this._tmpIdx++}`;
       this.emit(`static mc_num ${tmp}[256];`);
       return `mc_identity(${tmp}, (int)(${n}))`;
+    }
+    if (expr.name === 'matmul' && expr.args.length === 2) {
+      const a = this.genExpr(expr.args[0]!);
+      const b = this.genExpr(expr.args[1]!);
+      const aName = expr.args[0]!.kind === 'IdentExpr' ? translit((expr.args[0] as IdentExpr).name) : '_m_l';
+      const bName = expr.args[1]!.kind === 'IdentExpr' ? translit((expr.args[1] as IdentExpr).name) : '_m_r';
+      const tmp = `_tmp_${this._tmpIdx++}`;
+      this.emit(`static mc_num ${tmp}[256];`);
+      this.emit(`mc_matmul(${a}, ${b}, ${tmp}, ${aName}_rows, ${aName}_cols, ${bName}_cols);`);
+      return tmp;
     }
     if (expr.name === 'zeros' && expr.args.length === 2) {
       const r = this.genExpr(expr.args[0]!);
@@ -1039,6 +1049,11 @@ export class CGenerator {
       const tmp = `_tmp_${this._tmpIdx++}`;
       this.emit(`static mc_num ${tmp}[256];`);
       return `mc_ones(${tmp}, (int)(${r}), (int)(${c}))`;
+    }
+
+    if (expr.name === 'factorial' && expr.args.length === 1) {
+      const x = this.genExpr(expr.args[0]!);
+      return `mc_factorial((int)(${x}))`;
     }
 
     // \log_{base}{x} → log(x) / log(base)
@@ -1457,13 +1472,13 @@ const FUNC_MAP: ReadonlyMap<string, string> = new Map([
   ['log2',   'log2'],
   ['exp',    'exp'],   ['sqrt',   'sqrt'],  ['cbrt',   'cbrt'],  ['abs',    'fabs'],
   ['floor',  'floor'], ['ceil',   'ceil'],  ['round',  'round'],  ['trunc',  'trunc'],
-  ['pow',    'pow'],   ['fmod',   'fmod'],
+  ['pow',    'pow'],   ['fmod',   'fmod'],  ['mod',    'fmod'],
   ['fmin',   'fmin'],  ['fmax',   'fmax'],
   ['min',    'fmin'],  ['max',    'fmax'],
   ['std',    'mc_std'],  ['mean',   'mc_mean'],
   ['gamma',  'tgamma'],  ['tgamma', 'tgamma'],  ['erf', 'erf'],  ['erfc', 'erfc'],
   ['gcd',    'mc_gcd'],  ['lcm',    'mc_lcm'],
-  ['sgn',    'mc_sgn'],  ['binom',  'mc_binom'],
+  ['sgn',    'mc_sgn'],  ['sign',   'mc_sgn'],  ['binom',  'mc_binom'],
   ['norm',   'mc_norm'],
   ['dot',    'mc_dot'],  ['cross',  'mc_cross3'],
   ['sum',    'mc_sum'],  ['product','mc_product'],

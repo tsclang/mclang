@@ -51,3 +51,10 @@ describe('sign(x)', () => {
     expect(c).toContain('mc_sgn(');
   });
 });
+
+describe('factorial(n)', () => {
+  it('factorial(n) emits mc_factorial', () => {
+    const { c } = compile('f(x) = factorial(x)\n');
+    expect(c).toContain('mc_factorial(');
+  });
+});

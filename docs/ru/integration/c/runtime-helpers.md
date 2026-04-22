@@ -136,6 +136,25 @@ static inline mc_num mc_lcm(mc_num a, mc_num b);
 
 ---
 
+## Конфликты имён
+
+Все helper-функции генерируются с префиксом `mc_` и объявляются как `static inline` — они видны только в пределах текущей единицы трансляции. Однако если в твоём коде уже определены функции с теми же именами, возникнет конфликт при объединении в одну единицу трансляции.
+
+Список зарезервированных имён:
+
+```
+mc_add_arr  mc_sub_arr  mc_mul_arr  mc_scale
+mc_dot      mc_cross3   mc_norm
+mc_matmul   mc_det      mc_inv      mc_transpose
+mc_identity mc_zeros    mc_ones
+mc_sgn      mc_gcd      mc_lcm      mc_binom    mc_factorial
+mc_mean     mc_std      mc_sum      mc_product  mc_min      mc_max
+```
+
+Если конфликт возникает — переименуй свои функции или подключай сгенерированный `.c`-файл как отдельную единицу трансляции.
+
+---
+
 ## Смотри также
 
 - [Передача массивов из C](arrays.md)

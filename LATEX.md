@@ -34,6 +34,8 @@
 | `\cos{x}` | `cos(x)` | `cos(x)` |
 | `\tan{x}` | `\tg{x}`, `tan(x)`, `tg(x)` | `tan(x)` |
 | `\cot{x}` | `\ctg{x}`, `cot(x)`, `ctg(x)` | `(1.0 / tan(x))` |
+| `\sec{x}` | `sec(x)` | `(1.0 / cos(x))` |
+| `\csc{x}` | `csc(x)` | `(1.0 / sin(x))` |
 | `\arcsin{x}` | `arcsin(x)`, `asin(x)` | `asin(x)` |
 | `\arccos{x}` | `arccos(x)`, `acos(x)` | `acos(x)` |
 | `\arctan{x}` | `\arctg{x}`, `arctan(x)`, `arctg(x)`, `atan(x)` | `atan(x)` |
@@ -66,6 +68,7 @@
 | `\log_{b}{x}` | `log{b}{x}` | `(log(x) / log(b))` |
 | `e^{x}` | `exp(x)` | `exp(x)` |
 | `\exp(x)` | `exp(x)` | `exp(x)` |
+| `\deg{x}` | `deg(x)` | `((x) * M_PI / 180.0)` |
 
 ---
 

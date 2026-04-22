@@ -1005,12 +1005,8 @@ Warning [W004]: Expression evaluates to 'inf' at compile time
 x = \pm 5
 ```
 ```
-Warning [W005]: '\pm' returns num[2], but result is assigned to a scalar
-  --> file.mc:1:5
-   |
- 1 | x = \pm 5
-   |     ^^^^^ returns [5, -5]
-   |
+// Не реализовано: предупреждение о присвоении num[2] скаляру не эмитируется
+// \pm возвращает num[2] = [5, -5], но компилятор не проверяет использование обоих значений
   = Hint: Access both values:
           r = \pm 5
           x_pos = r[0]  // +5

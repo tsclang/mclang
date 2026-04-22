@@ -74,6 +74,29 @@ double r0 = result[0];   // сохрани, если нужно
 
 ---
 
+## Runtime guard для равных длин
+
+Если функция принимает два массива и выполняет поэлементную операцию, компилятор добавляет автоматическую проверку длин:
+
+```mc
+kinetic(masses: num[], velocities: num[]) =
+    0.5 * sum(masses * velocities^2)
+```
+
+Генерируется:
+
+```c
+mc_num kinetic(mc_num* masses, int masses_len,
+               mc_num* velocities, int velocities_len) {
+    if (masses_len != velocities_len) return NAN;
+    // ...
+}
+```
+
+Если длины не совпадают — функция возвращает `NAN`.
+
+---
+
 ## Ошибки
 
 ### Неверная длина

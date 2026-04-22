@@ -22,12 +22,14 @@ const BUILTINS = new Set([
   'sqrt', 'cbrt', 'exp', 'log', 'ln', 'log2', 'log10', 'lg', 'deg',
   'abs', 'fabs', 'floor', 'ceil', 'round', 'trunc',
   'min', 'max', 'fmin', 'fmax', 'hypot',
-  'pow', 'sgn', 'erf', 'erfc',
+  'pow', 'sgn', 'sign', 'erf', 'erfc',
   'sum', 'product', 'mean', 'std', 'norm',
   'dot', 'cross', 'transpose', 'det', 'inv',
   'I', 'zeros', 'ones',
   'is_nan', 'is_inf', 'is_finite',
-  'mod', 'gcd', 'lcm',
+  'mod', 'fmod', 'gcd', 'lcm',
+  'gamma', 'tgamma', 'binom', 'factorial',
+  'ctg', 'identity', 'matmul',
 ]);
 
 type FuncSig = { paramCount: number };

@@ -14,8 +14,8 @@ mclang --explain E030
 |-----|----------|----------|
 | E000 | UnknownCharacter | Неизвестный символ в исходнике |
 | E001 | UnknownLatexCommand | Неизвестная LaTeX-команда `\name` |
-| E002 | BadScientificNotation | Неверный формат научной нотации (`1e` без цифр) |
-| E003 | InconsistentIndent | Нарушение правил отступов |
+| E002 | BadScientificNotation | Неверный формат научной нотации (`1e` без цифр после степени) |
+| E003 | InconsistentIndent | Блок с отступом не совпадает ни с одним уровнем окружения |
 
 ---
 
@@ -23,14 +23,14 @@ mclang --explain E030
 
 | Код | Название | Описание |
 |-----|----------|----------|
-| E010 | UnexpectedToken | Неожиданный токен |
-| E011 | MissingExpression | Ожидалось выражение |
-| E012 | UnclosedParen | Незакрытая скобка |
-| E013 | UnclosedBracket | Незакрытая квадратная скобка |
-| E014 | InvalidTypeSyntax | Неверный синтаксис типа |
-| E015 | ExpectedParamName | Ожидалось имя параметра |
-| E016 | DefaultBeforeRequired | Параметр с дефолтом стоит перед обязательным |
-| E017 | InvalidForRange | Неверный диапазон в `for` |
+| E010 | UnclosedParen | Незакрытая круглая скобка |
+| E011 | UnclosedBracket | Незакрытая квадратная скобка `[` |
+| E012 | UnclosedBrace | Незакрытая фигурная скобка `{` |
+| E013 | UnexpectedToken | Неожиданный токен |
+| E014 | ValueFirstIf | mclang поддерживает только if-first синтаксис: `if (cond) value else other` |
+| E015 | ExplicitReturn | `return` не является ключевым словом — последнее выражение возвращается неявно |
+| E016 | BreakOrContinue | `break` и `continue` не поддерживаются — используй условие `while` |
+| E017 | MissingOperand | Найден оператор, но ожидаемый операнд отсутствует |
 
 ---
 
@@ -38,10 +38,10 @@ mclang --explain E030
 
 | Код | Название | Описание |
 |-----|----------|----------|
-| E020 | ImportFileNotFound | Файл импорта не найден |
-| E021 | ImportCycle | Циклический импорт |
-| E022 | ImportParseError | Ошибка разбора импортируемого файла |
-| E023 | ImportNameConflict | Конфликт имён при импорте |
+| E020 | CircularImport | Циклический импорт между файлами |
+| E021 | FileNotFound | Файл импорта не найден по указанному пути |
+| E022 | NameConflict | Одно имя экспортируется двумя разными модулями |
+| E023 | UnknownImportedName | `from ... import name` ссылается на имя, которого нет в модуле |
 
 ---
 
@@ -49,16 +49,16 @@ mclang --explain E030
 
 | Код | Название | Описание |
 |-----|----------|----------|
-| E030 | UndefinedVariable | Переменная не объявлена |
-| E031 | UndefinedFunction | Функция не объявлена |
-| E032 | ImmutableParameter | Попытка переназначить параметр функции |
+| E030 | ImmutableParameter | Параметры функции иммутабельны и не могут быть переназначены |
+| E031 | ImmutableConstant | Глобальные и встроенные константы не могут быть переназначены |
+| E032 | UninitializedVariable | Переменная использована до инициализации |
 | E033 | CircularWhereDep | Цикличная зависимость в блоке `where` |
-| E034 | TypeMismatch | Несовместимые типы |
-| E035 | ArityMismatch | Неверное число аргументов |
-| E036 | IndexNotInt | Индекс массива должен быть `int` |
-| E037 | LengthOnMatrix | `.length` запрещено для матриц — используй `.rows` / `.cols` |
-| E038 | UninitializedVariable | Переменная использована до инициализации |
-| E039 | DuplicateDefinition | Дублирование имени функции или константы |
+| E034 | MatrixDotLength | Матрицы не имеют свойства `.length` — используй `.rows` / `.cols` |
+| E035 | UnitMismatch | Несовместимые единицы измерения |
+| E036 | ArraySizeMismatch | Операция требует массивов одинаковой длины |
+| E037 | RecursionNotSupported | Рекурсивные вызовы не поддерживаются в текущей версии |
+| E038 | UndefinedIdentifier | Идентификатор не определён в текущей области видимости |
+| E039 | TypeMismatch | Несовместимые типы операндов или аргумента функции |
 
 ---
 
@@ -66,7 +66,7 @@ mclang --explain E030
 
 | Код | Название | Описание |
 |-----|----------|----------|
-| E050 | UnsupportedConstruct | Конструкция не поддерживается в текущем таргете |
+| E050 | UnsupportedTarget | Запрошенный `--target` не реализован |
 
 ---
 
@@ -74,20 +74,20 @@ mclang --explain E030
 
 | Код | Название | Описание |
 |-----|----------|----------|
-| W001 | DivisionByZero | Деление на ноль (константное) |
-| W002 | SqrtOfNegative | `sqrt` от отрицательного числа |
-| W003 | UnusedVariable | Переменная объявлена, но не используется |
-| W004 | UnreachableCode | Недостижимый код после `return` |
+| W001 | DivisionByZero | Деление на ноль в константном выражении (результат: inf или nan) |
+| W002 | SqrtOfNegative | `sqrt` от отрицательной константы — результат будет NaN |
+| W003 | UnusedVariable | Переменная объявлена в `where`, но нигде не используется |
+| W004 | UnreachableCode | Недостижимый код после безусловного возврата |
 
 ---
 
 ## Флаг --explain
 
 ```bash
-mclang --explain E032
+mclang --explain E030
 # Выводит:
-# E032: ImmutableParameter
-# Параметры функции нельзя переназначить — они иммутабельны.
+# E030: ImmutableParameter
+# Function parameters are immutable and cannot be reassigned.
 # ...
 ```
 
