@@ -4,8 +4,7 @@ import type { Span } from '../types/index.js';
 
 export type McType =
   | { kind: 'NumType'; dims: number; staticSize?: number } // num, num[], num[][], num[N]
-  | { kind: 'IntType' }
-  | { kind: 'BoolType' };
+  | { kind: 'IntType' };
 
 // ── Top-level ─────────────────────────────────────────────────────────────────
 
@@ -106,7 +105,6 @@ export type WhereLine =
 
 export type Expr =
   | NumberLit
-  | BoolLit
   | IdentExpr
   | BinaryExpr
   | UnaryExpr
@@ -133,12 +131,9 @@ export type Expr =
   | LimExpr
   | DerivExpr
   | IntegralExpr
-  | SolveExpr
-  | TableExpr
-  | StringLitExpr;
+  | SolveExpr;
 
 export type NumberLit = { kind: 'NumberLit'; value: number; raw: string; span: Span };
-export type BoolLit   = { kind: 'BoolLit';   value: boolean; span: Span };
 export type IdentExpr = { kind: 'IdentExpr'; name: string;   span: Span };
 
 export type BinOp =
@@ -318,14 +313,3 @@ export type SolveExpr = {
   span: Span;
 };
 
-export type StringLitExpr = {
-  kind: 'StringLitExpr';
-  value: string;
-  span: Span;
-};
-
-export type TableExpr = {
-  kind: 'TableExpr';
-  pairs: Array<{ key: Expr; value: Expr }>;
-  span: Span;
-};

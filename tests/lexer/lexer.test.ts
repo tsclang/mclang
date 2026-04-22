@@ -60,10 +60,6 @@ describe('T-002: ASCII identifiers', () => {
     expect(toks[0]?.value).toBe('_helper');
   });
 
-  it('recognizes keyword `fn`', () => {
-    expect(kinds('fn')[0]).toBe(TokenKind.KwFn);
-  });
-
   it('recognizes keyword `where`', () => {
     expect(kinds('where')[0]).toBe(TokenKind.KwWhere);
   });

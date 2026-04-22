@@ -11,7 +11,11 @@ import {
   CompilerError,
   formatDiagnostic,
   explainCode,
+  type Diagnostic,
 } from '../diagnostics/index.js';
+import { ErrorCode } from '../diagnostics/codes.js';
+import { typeCheck } from '../types/checker.js';
+import { transformFile } from '../math/transforms.js';
 import { runEval } from './eval.js';
 import { generateRust } from '../codegen/rust.js';
 import { generateNapiC, generateBindingGyp, generateNodeBindings } from '../codegen/node-addon.js';
@@ -126,9 +130,28 @@ function main(): void {
 
     const hasImports = tokens.some(t => t.kind === TokenKind.KwImport);
     const absInputFwd = absInput.replace(/\\/g, '/');
-    const ast = hasImports
+    const parsedAst = hasImports
       ? resolveImports(absInputFwd, source, (p) => readFileSync(p, 'utf-8'))
       : parseSource(tokens);
+
+    // Type checking pass
+    const typeErrors = typeCheck(parsedAst);
+    if (typeErrors.length > 0) {
+      for (const err of typeErrors) {
+        const diag: Diagnostic = {
+          level: 'error',
+          code: ErrorCode.ImmutableParameter,
+          message: err.message,
+          primary: { span: err.span, message: err.message, primary: true },
+        };
+        process.stderr.write(formatDiagnostic(diag, sources) + '\n');
+      }
+      process.exit(1);
+    }
+
+    // Constant folding + pattern transforms
+    const ast = transformFile(parsedAst);
+
     const { c, h } = generateC(ast, { target: targetArg, precision: precisionArg });
 
     // Determine output paths

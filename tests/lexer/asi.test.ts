@@ -47,10 +47,6 @@ describe('ASI — line continuation', () => {
     expect(hasNewline('[a,\n  b,\n  c]')).toBe(false);
   });
 
-  it('no NEWLINE inside curly braces', () => {
-    expect(hasNewline('table {\n  1 -> 2\n}')).toBe(false);
-  });
-
   it('NEWLINE after closing paren at top level', () => {
     expect(hasNewline('f(a)\ng(b)')).toBe(true);
   });

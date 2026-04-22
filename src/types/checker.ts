@@ -272,17 +272,9 @@ function checkExpr(
       checkExpr(expr.lo, params, funcSigs, errors);
       checkExpr(expr.hi, params, funcSigs, errors);
       break;
-    case 'TableExpr':
-      for (const pair of expr.pairs) {
-        checkExpr(pair.key, params, funcSigs, errors);
-        checkExpr(pair.value, params, funcSigs, errors);
-      }
-      break;
     // Leaf nodes: no sub-expressions to check
     case 'NumberLit':
-    case 'BoolLit':
     case 'IdentExpr':
-    case 'StringLitExpr':
       break;
   }
 }

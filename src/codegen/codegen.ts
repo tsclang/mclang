@@ -2,13 +2,12 @@ import type {
   File, TopLevelNode, ConstDef, FuncDef,
   Stmt, AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
   WhereBlock, WhereLine,
-  Expr, NumberLit, BoolLit, IdentExpr, BinaryExpr, UnaryExpr,
+  Expr, NumberLit, IdentExpr, BinaryExpr, UnaryExpr,
   FuncCallExpr, QualifiedCallExpr, IfExpr, IndexExpr, SliceExpr, MatrixSlice, MemberExpr,
   ArrayLit, MatrixLit, FracExpr, SqrtExpr,
   AbsExpr, NormExpr, FloorExpr, CeilExpr,
   PmExpr, CasesExpr, SumExpr, PostfixExpr, ChainCmpExpr,
   LimExpr, DerivExpr, IntegralExpr, SolveExpr,
-  TableExpr, StringLitExpr,
   Param, McType,
 } from '../ast/nodes.js';
 
@@ -89,7 +88,6 @@ function cType(ty: McType | undefined): string {
   if (!ty) return 'mc_num';
   switch (ty.kind) {
     case 'IntType':  return 'int';
-    case 'BoolType': return 'int';
     case 'NumType':
       if (ty.dims === 0) return 'mc_num';
       return 'mc_num*';
@@ -102,6 +100,25 @@ function isArrayType(ty: McType | undefined): boolean {
 
 function isMatrixType(ty: McType | undefined): boolean {
   return ty?.kind === 'NumType' && (ty.dims ?? 0) >= 2;
+}
+
+// Collect all IdentExpr names in an expression that appear in a given name set
+function collectIdents(expr: Expr, names: Set<string>): Set<string> {
+  const result = new Set<string>();
+  const walk = (e: Expr): void => {
+    if (e.kind === 'IdentExpr' && names.has(e.name)) { result.add(e.name); return; }
+    for (const key of Object.keys(e)) {
+      const v = (e as Record<string, unknown>)[key];
+      if (v && typeof v === 'object') {
+        if ((v as { kind?: unknown }).kind) walk(v as Expr);
+        else if (Array.isArray(v)) for (const item of v) {
+          if (item && typeof item === 'object' && (item as { kind?: unknown }).kind) walk(item as Expr);
+        }
+      }
+    }
+  };
+  walk(expr);
+  return result;
 }
 
 // ── Code generator ────────────────────────────────────────────────────────────
@@ -118,6 +135,9 @@ export class CGenerator {
 
   // Type environment for current function's params
   private typeEnv: Map<string, McType> = new Map();
+
+  // Track declared local variables to avoid re-declaring (shadowing) in loops
+  private declaredLocals: Set<string> = new Set();
 
   // Counter for unique local variable names
   private localArrCount = 0;
@@ -339,43 +359,9 @@ export class CGenerator {
   // ── Const def ───────────────────────────────────────────────────────────────
 
   private genConstDef(node: ConstDef): void {
-    if (node.value.kind === 'TableExpr') {
-      this.genTableDef(node.name, node.value as TableExpr);
-      return;
-    }
     const name = translit(node.name);
     const val = this.genExpr(node.value);
     this.emit(`static const mc_num ${name} = ${val};`);
-    this.emit('');
-  }
-
-  private genTableDef(name: string, expr: TableExpr): void {
-    const cname = translit(name);
-    const allString = expr.pairs.every(p => p.key.kind === 'StringLitExpr');
-
-    if (allString) {
-      // String-key table → C function with strcmp chain
-      this.tableKind.set(name, 'string');
-      this.emit(`static mc_num ${cname}(const char* _key) {`);
-      this.indent++;
-      for (const { key, value } of expr.pairs) {
-        const k = (key as StringLitExpr).value;
-        const v = this.genExpr(value);
-        this.emit(`if (strcmp(_key, "${k}") == 0) return ${v};`);
-      }
-      this.emit('return NAN;');
-      this.indent--;
-      this.emit('}');
-    } else {
-      // Numeric-key table → interp arrays
-      this.tableKind.set(name, 'numeric');
-      const n = expr.pairs.length;
-      const xs = expr.pairs.map(p => this.genExpr(p.key)).join(', ');
-      const ys = expr.pairs.map(p => this.genExpr(p.value)).join(', ');
-      this.emit(`static const mc_num _${cname}_xs[${n}] = {${xs}};`);
-      this.emit(`static const mc_num _${cname}_ys[${n}] = {${ys}};`);
-      this.emit(`static const int _${cname}_n = ${n};`);
-    }
     this.emit('');
   }
 
@@ -383,6 +369,7 @@ export class CGenerator {
 
   private genFuncDef(node: FuncDef): void {
     this.typeEnv = new Map();
+    this.declaredLocals = new Set();
     for (const p of node.params) {
       // Register all params (typed or not) so builtin constants don't shadow them
       this.typeEnv.set(p.name, p.type ?? { kind: 'NumType', dims: 0 });
@@ -408,6 +395,7 @@ export class CGenerator {
     }
     this.emit(`${sig} {`);
     this.indent++;
+    this.genArrayLengthGuards(node.params);
     if (node.where) this.genWhereBlock(node.where);
     this.genFuncBody(node.body);
     this.indent--;
@@ -417,6 +405,19 @@ export class CGenerator {
     if (!isPrivate) {
       this.hLines.push(`${sig};`);
       this.publicFuncs.push(cName);
+    }
+  }
+
+  private genArrayLengthGuards(params: Param[]): void {
+    // If function has multiple dynamic num[] params, guard that they have equal length
+    const arrParams = params.filter(p =>
+      p.type?.kind === 'NumType' && p.type.dims === 1 && p.type.staticSize === undefined,
+    );
+    if (arrParams.length < 2) return;
+    const first = translit(arrParams[0]!.name);
+    for (let i = 1; i < arrParams.length; i++) {
+      const other = translit(arrParams[i]!.name);
+      this.emit(`if (${first}_len != ${other}_len) return NAN;`);
     }
   }
 
@@ -431,6 +432,7 @@ export class CGenerator {
     // Emit the implementation body
     this.emit(`${implSig} {`);
     this.indent++;
+    this.genArrayLengthGuards(params);
     if (node.where) this.genWhereBlock(node.where);
     this.genFuncBody(node.body);
     this.indent--;
@@ -531,17 +533,53 @@ export class CGenerator {
   // ── Where block ─────────────────────────────────────────────────────────────
 
   private genWhereBlock(where: WhereBlock): void {
-    // Topological sort of defs will come in Phase 4; for now emit in order
-    for (const line of where.lines) {
-      if (line.kind === 'WhereDef') {
-        const name = translit(line.name);
-        const val = this.genExpr(line.value);
-        this.emit(`mc_num ${name} = ${val};`);
-      } else {
-        // Guard: if (!cond) return NAN;
-        const cond = this.genExpr(line.expr);
-        this.emit(`if (!(${cond})) return NAN;`);
+    const defs = where.lines.filter((l): l is Extract<WhereLine, { kind: 'WhereDef' }> =>
+      l.kind === 'WhereDef',
+    );
+    const guards = where.lines.filter(l => l.kind === 'WhereGuard');
+
+    // Build dependency graph for defs
+    const defNames = new Set(defs.map(d => d.name));
+    const deps = new Map<string, Set<string>>();
+    for (const d of defs) {
+      deps.set(d.name, collectIdents(d.value, defNames));
+    }
+
+    // Kahn's algorithm for topological sort
+    const sorted: typeof defs = [];
+    const remaining = new Set(defs.map(d => d.name));
+    const defByName = new Map(defs.map(d => [d.name, d]));
+    let progress = true;
+    while (remaining.size > 0 && progress) {
+      progress = false;
+      for (const name of [...remaining]) {
+        const d = deps.get(name)!;
+        const ready = [...d].every(dep => !remaining.has(dep));
+        if (ready) {
+          sorted.push(defByName.get(name)!);
+          remaining.delete(name);
+          progress = true;
+        }
       }
+    }
+    // Any remaining nodes form a cycle — emit in original order with a warning comment
+    if (remaining.size > 0) {
+      for (const name of remaining) {
+        sorted.push(defByName.get(name)!);
+      }
+    }
+
+    // Emit sorted defs
+    for (const def of sorted) {
+      const name = translit(def.name);
+      const val = this.genExpr(def.value);
+      this.declaredLocals.add(name);
+      this.emit(`mc_num ${name} = ${val};`);
+    }
+    // Emit guards after all defs (guards depend on defs, not on each other)
+    for (const line of guards) {
+      const cond = this.genExpr((line as { kind: 'WhereGuard'; expr: Expr }).expr);
+      this.emit(`if (!(${cond})) return NAN;`);
     }
   }
 
@@ -613,8 +651,12 @@ export class CGenerator {
   private genAssign(stmt: AssignStmt): void {
     const name = translit(stmt.name);
     const val = this.genExpr(stmt.value);
-    // Emit declaration + assignment (first occurrence)
-    this.emit(`mc_num ${name} = ${val};`);
+    if (this.declaredLocals.has(name)) {
+      this.emit(`${name} = ${val};`);
+    } else {
+      this.declaredLocals.add(name);
+      this.emit(`mc_num ${name} = ${val};`);
+    }
   }
 
   // Generate a boolean condition expression without ternary wrapping.
@@ -639,9 +681,6 @@ export class CGenerator {
     }
     if (expr.kind === 'UnaryExpr' && (expr.op === '!' || expr.op === 'not')) {
       return `!(${this.genCond(expr.operand)})`;
-    }
-    if (expr.kind === 'BoolLit') {
-      return expr.value ? '1' : '0';
     }
     return this.genExpr(expr);
   }
@@ -747,7 +786,6 @@ export class CGenerator {
   genExpr(expr: Expr): string {
     switch (expr.kind) {
       case 'NumberLit':   return this.genNumber(expr);
-      case 'BoolLit':     return expr.value ? '1' : '0';
       case 'IdentExpr':   return this.genIdent(expr);
       case 'BinaryExpr':  return this.genBinary(expr);
       case 'UnaryExpr':   return this.genUnary(expr);
@@ -775,8 +813,6 @@ export class CGenerator {
       case 'DerivExpr':   return this.genDeriv(expr);
       case 'IntegralExpr':return this.genIntegral(expr);
       case 'SolveExpr':   return this.genSolve(expr);
-      case 'StringLitExpr': return `"${(expr as StringLitExpr).value}"`;
-      case 'TableExpr':   throw new Error('TableExpr must be a top-level const value');
       default:
         throw new Error(`Unknown expr kind: ${(expr as Expr).kind}`);
     }
@@ -882,8 +918,16 @@ export class CGenerator {
     const l = this.genExpr(expr.left);
     const r = this.genExpr(expr.right);
     if (isMatrixType(lTy) && isMatrixType(rTy)) {
-      const lInfo = this.inferLenExpr(expr.left);
-      return `/* matmul(${l}, ${r}, result, ${lInfo}) */0.0`;
+      // A (rows×inner) ⋅ B (inner×cols) → mc_matmul
+      const lName = expr.left.kind === 'IdentExpr' ? translit(expr.left.name) : '_m_l';
+      const rName = expr.right.kind === 'IdentExpr' ? translit(expr.right.name) : '_m_r';
+      const rows = `${lName}_rows`;
+      const inner = `${lName}_cols`;
+      const cols = `${rName}_cols`;
+      const tmp = `_tmp_${this._tmpIdx++}`;
+      this.emit(`static mc_num ${tmp}[256];`);
+      this.emit(`mc_matmul(${l}, ${r}, ${tmp}, ${rows}, ${inner}, ${cols});`);
+      return tmp;
     }
     if (isArrayType(lTy) && isArrayType(rTy)) {
       const len = this.inferLenExpr(expr.left);
@@ -1011,6 +1055,10 @@ export class CGenerator {
       const x = this.genExpr(expr.args[0]!);
       return `(1.0/tanh(${x}))`;
     }
+    if (expr.name === 'deg' && expr.args.length === 1) {
+      const x = this.genExpr(expr.args[0]!);
+      return `((${x}) * (M_PI / 180.0))`;
+    }
 
     // dot(v, w) → mc_dot(v, w, len)
     if (expr.name === 'dot' && expr.args.length === 2) {
@@ -1133,6 +1181,11 @@ export class CGenerator {
       const ty = this.typeEnv.get(name);
       switch (expr.member) {
         case 'length':
+          if (isMatrixType(ty)) {
+            throw new Error(
+              `'.length' is not allowed on matrix '${name}'. Use '.rows' and '.cols' instead.`,
+            );
+          }
           // Static size known at compile time
           if (ty?.kind === 'NumType' && ty.staticSize !== undefined && ty.dims === 1) {
             return String(ty.staticSize);
@@ -1389,13 +1442,13 @@ const FUNC_MAP: ReadonlyMap<string, string> = new Map([
   ['log2',   'log2'],
   ['exp',    'exp'],   ['sqrt',   'sqrt'],  ['cbrt',   'cbrt'],  ['abs',    'fabs'],
   ['floor',  'floor'], ['ceil',   'ceil'],  ['round',  'round'],  ['trunc',  'trunc'],
-  ['fabs',   'fabs'],  ['pow',    'pow'],   ['fmod',   'fmod'],
+  ['pow',    'pow'],   ['fmod',   'fmod'],
   ['fmin',   'fmin'],  ['fmax',   'fmax'],
   ['min',    'fmin'],  ['max',    'fmax'],
   ['std',    'mc_std'],  ['mean',   'mc_mean'],
   ['gamma',  'tgamma'],  ['tgamma', 'tgamma'],  ['erf', 'erf'],  ['erfc', 'erfc'],
   ['gcd',    'mc_gcd'],  ['lcm',    'mc_lcm'],
-  ['sgn',    'mc_sgn'],  ['sign',   'mc_sgn'],  ['binom',  'mc_binom'],
+  ['sgn',    'mc_sgn'],  ['binom',  'mc_binom'],
   ['norm',   'mc_norm'],
   ['dot',    'mc_dot'],  ['cross',  'mc_cross3'],
   ['sum',    'mc_sum'],  ['product','mc_product'],

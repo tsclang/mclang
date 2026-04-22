@@ -7,13 +7,12 @@ import type {
   File, TopLevelNode, ConstDef, FuncDef, ImportDef, Param, McType,
   Stmt, AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
   WhereBlock, WhereLine,
-  Expr, NumberLit, BoolLit, IdentExpr, BinaryExpr, BinOp, UnaryExpr,
+  Expr, NumberLit, IdentExpr, BinaryExpr, BinOp, UnaryExpr,
   FuncCallExpr, QualifiedCallExpr, IfExpr, IndexExpr, SliceExpr, MatrixSlice, MemberExpr,
   ArrayLit, MatrixLit, FracExpr, SqrtExpr,
   AbsExpr, NormExpr, FloorExpr, CeilExpr, PmExpr, CasesExpr,
   SumExpr, PostfixExpr, ChainCmpExpr,
   LimExpr, DerivExpr, IntegralExpr, SolveExpr,
-  TableExpr, StringLitExpr,
 } from '../ast/nodes.js';
 
 // Builtin functions that support \fn^n x → pow(fn(x), n) LaTeX power notation
@@ -189,10 +188,6 @@ export class Parser {
     if (this.check(TokenKind.KwInt)) {
       this.advance();
       return { kind: 'IntType' };
-    }
-    if (this.check(TokenKind.KwBool)) {
-      this.advance();
-      return { kind: 'BoolType' };
     }
     this.expect(TokenKind.KwNum);
     let dims = 0;
@@ -1001,16 +996,6 @@ export class Parser {
       return { kind: 'NumberLit', value: Number(t.value), raw: t.value, span: t.span };
     }
 
-    // Boolean literals
-    if (t.kind === TokenKind.KwTrue) {
-      this.advance();
-      return { kind: 'BoolLit', value: true, span: t.span };
-    }
-    if (t.kind === TokenKind.KwFalse) {
-      this.advance();
-      return { kind: 'BoolLit', value: false, span: t.span };
-    }
-
     // nan / inf
     if (t.kind === TokenKind.KwNaN) {
       this.advance();
@@ -1024,17 +1009,6 @@ export class Parser {
     // Array / matrix literal
     if (t.kind === TokenKind.LBracket) {
       return this.parseArrayOrMatrix();
-    }
-
-    // String literal
-    if (t.kind === TokenKind.StringLit) {
-      this.advance();
-      return { kind: 'StringLitExpr', value: t.value, span: t.span };
-    }
-
-    // table { ... }
-    if (t.kind === TokenKind.KwTable) {
-      return this.parseTable();
     }
 
     throw unexpectedToken(t, 'expression');
@@ -1116,15 +1090,6 @@ export class Parser {
 
         // Skip \text{if} or bare 'if' keyword used as visual separator
         if (this.check(TokenKind.KwIf)) this.advance();
-
-        // \text{otherwise} or 'otherwise' keyword → else branch
-        if (this.check(TokenKind.KwOtherwise)) {
-          else_ = value;
-          this.advance();
-          if (this.check(TokenKind.CasesRowSep)) this.advance();
-          this.skipNewlines();
-          break;
-        }
 
         const cond = this.parseExpr();
         // Consume \\ row separator (now emits CasesRowSep)
@@ -1574,27 +1539,6 @@ export class Parser {
     return { kind: 'SolveExpr', var: varName, lo, hi, body, span };
   }
 
-  // ── Phase 8 — table ──────────────────────────────────────────────────────────
-
-  private parseTable(): TableExpr {
-    // table { key -> value, key -> value, ... }
-    const start = this.peek().span.start;
-    this.expect(TokenKind.KwTable);
-    this.expect(TokenKind.LBrace);
-    this.skipNewlines();
-    const pairs: Array<{ key: Expr; value: Expr }> = [];
-    while (!this.check(TokenKind.RBrace) && !this.check(TokenKind.EOF)) {
-      const key = this.parsePrimary(); // number or string literal
-      this.expect(TokenKind.Arrow);    // ->
-      const value = this.parseExpr();
-      pairs.push({ key, value });
-      if (this.check(TokenKind.Comma)) this.advance();
-      this.skipNewlines();
-    }
-    this.expect(TokenKind.RBrace);
-    const span = this.mkSpan(start, this.prev().span.end);
-    return { kind: 'TableExpr', pairs, span };
-  }
 }
 
 export function parseSource(tokens: Token[]): File {

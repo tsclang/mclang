@@ -16,7 +16,7 @@ describe('\\begin{cases}', () => {
       'sign(x) = \\begin{cases}',
       '    1  & \\text{if} x > 0 \\\\',
       '    -1 & \\text{if} x < 0 \\\\',
-      '    0  & \\text{otherwise}',
+      '    0',
       '\\end{cases}',
     ].join('\n');
     const { c } = compile(src);
@@ -42,7 +42,7 @@ describe('\\begin{cases}', () => {
     const src = [
       'abs_val(x) = \\begin{cases}',
       '    x  & \\text{if} x >= 0',
-      '    -x & \\text{otherwise}',
+      '    -x',
       '\\end{cases}',
     ].join('\n');
     const { c } = compile(src);
@@ -54,11 +54,10 @@ describe('\\begin{cases}', () => {
       'sign(x) = \\begin{cases}',
       '    1  & \\text{if} x > 0 \\\\',
       '    -1 & \\text{if} x < 0 \\\\',
-      '    0  & \\text{otherwise}',
+      '    0',
       '\\end{cases}',
     ].join('\n');
     const { c } = compile(src);
-    // should produce a chained if/else
     expect(c).toMatch(/if.*else if.*else/s);
     expect(c).toContain('return 1.0');
     expect(c).toContain('return (-(1.0))');

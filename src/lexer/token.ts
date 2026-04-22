@@ -6,20 +6,14 @@ export const enum TokenKind {
   Identifier = 'Identifier',
 
   // Keywords
-  KwFn = 'fn',
-  KwConst = 'const',
   KwIf = 'if',
   KwElse = 'else',
   KwFor = 'for',
   KwIn = 'in',
   KwWhile = 'while',
   KwWhere = 'where',
-  KwReturn = 'return',
   KwNum = 'num',
   KwInt = 'int',
-  KwBool = 'bool',
-  KwTrue = 'true',
-  KwFalse = 'false',
   KwSolve = 'solve',
   KwNaN = 'nan',
   KwInf = 'inf',
@@ -32,9 +26,6 @@ export const enum TokenKind {
   KwImport = 'import',
   KwFrom = 'from',
   KwAs = 'as',
-  KwTable = 'table',
-  KwOtherwise = 'otherwise',
-
   // Mathematical sets: ℕ ℤ ℝ ℚ ℂ  /  \mathbb{N} etc.
   KwSetN = 'SET_N',
   KwSetZ = 'SET_Z',
@@ -81,7 +72,6 @@ export const enum TokenKind {
 
   // Assignment
   Assign = '=',
-  ColonEq = ':=',
 
   // Delimiters
   LParen = '(',
@@ -94,7 +84,6 @@ export const enum TokenKind {
   Colon = ':',
   Semicolon = ';',
   Dot2 = '..',      // range a..b
-  Arrow = '->',
   Backslash = '\\',
 
   // Punctuation
@@ -183,20 +172,14 @@ export function token(kind: TokenKind, value: string, span: Span): Token {
 
 // Keywords map: identifier text → token kind
 export const KEYWORDS: ReadonlyMap<string, TokenKind> = new Map([
-  ['fn',      TokenKind.KwFn],
-  ['const',   TokenKind.KwConst],
   ['if',      TokenKind.KwIf],
   ['else',    TokenKind.KwElse],
   ['for',     TokenKind.KwFor],
   ['in',      TokenKind.KwIn],
   ['while',   TokenKind.KwWhile],
   ['where',   TokenKind.KwWhere],
-  ['return',  TokenKind.KwReturn],
   ['num',     TokenKind.KwNum],
   ['int',     TokenKind.KwInt],
-  ['bool',    TokenKind.KwBool],
-  ['true',    TokenKind.KwTrue],
-  ['false',   TokenKind.KwFalse],
   ['solve',   TokenKind.KwSolve],
   ['nan',     TokenKind.KwNaN],
   ['inf',     TokenKind.KwInf],
@@ -209,8 +192,6 @@ export const KEYWORDS: ReadonlyMap<string, TokenKind> = new Map([
   ['import',  TokenKind.KwImport],
   ['from',    TokenKind.KwFrom],
   ['as',      TokenKind.KwAs],
-  ['table',     TokenKind.KwTable],
-  ['otherwise', TokenKind.KwOtherwise],
 ]);
 
 // LaTeX commands → token kind

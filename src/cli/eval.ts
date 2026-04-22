@@ -63,7 +63,6 @@ function isScalarParam(f: FuncDef): boolean {
     if (!p.type) return true;
     if (p.type.kind === 'NumType' && p.type.dims === 0) return true;
     if (p.type.kind === 'IntType') return true;
-    if (p.type.kind === 'BoolType') return true;
     return false;
   });
 }

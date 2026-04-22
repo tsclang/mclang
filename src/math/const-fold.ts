@@ -3,7 +3,6 @@ import type { Expr, BinaryExpr, UnaryExpr } from '../ast/nodes.js';
 export function constantFold(expr: Expr): Expr {
   switch (expr.kind) {
     case 'NumberLit':
-    case 'BoolLit':
     case 'IdentExpr':
       return expr;
 

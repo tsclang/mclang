@@ -15,10 +15,12 @@
 | Таргет | Команда | Результат |
 |--------|---------|-----------|
 | PC / JS / Python | `mclang file.mc --target wasm` | `.wasm` |
-| Python (C extension) | `mclang file.mc --target shared` | `.so` / `.dll` |
+| Python (C extension) | `mclang file.mc --target shared` | `.so` / `.dll` + `_loader.py` |
 | C / C++ | `mclang file.mc --target c` | `.c` + `.h` |
-| STM32 / ESP32 | `mclang file.mc --target avr --precision f32` | `.c` + `.h` |
-| Arduino / 8-bit | `mclang file.mc --target avr --precision fixed` | `.c` + `.h` |
+| Node.js (N-API) | `mclang file.mc --target node` | `.c` + `.h` + `_napi.c` + `binding.gyp` + `_bindings.js` |
+| Rust FFI | `mclang file.mc --target rust` | `.c` + `.h` + `_bindings.rs` |
+| STM32 / ESP32 | `mclang file.mc --target avr --precision f32` | `.c` + `.h` (v2, не реализован) |
+| Arduino / 8-bit | `mclang file.mc --target avr --precision fixed` | `.c` + `.h` (v2, не реализован) |
 
 ### 1.3 Модель интеграции
 
@@ -270,6 +272,7 @@ bad(x) =
 
 ```
 // Однострочный комментарий
+# Альтернативный однострочный комментарий (Python-style)
 ```
 
 ---
@@ -395,7 +398,7 @@ my_func(x) = x * π
 | Арксинус | `arcsin`, `asin`, `\arcsin` | `asin(x)` |
 | Арккосинус | `arccos`, `acos`, `\arccos` | `acos(x)` |
 | Арктангенс | `arctan`, `arctg`, `atan`, `\arctan`, `\arctg` | `atan(x)` |
-| Арккотангенс | `arccot`, `arcctg`, `\arccot`, `\arcctg` | `(M_PI_2 - atan(x))` |
+| Арккотангенс | `arccot`, `arcctg`, `\arccot`, `\arcctg` | `atan2(1.0, x)` |
 | Гиперб. синус | `sinh`, `sh`, `\sinh`, `\sh` | `sinh(x)` |
 | Гиперб. косинус | `cosh`, `ch`, `\cosh`, `\ch` | `cosh(x)` |
 | Гиперб. тангенс | `tanh`, `th`, `\tanh`, `\th` | `tanh(x)` |
@@ -418,6 +421,12 @@ my_func(x) = x * π
 | `floor(x)` | `floor(x)` |
 | `ceil(x)` | `ceil(x)` |
 | `round(x)` | `round(x)` |
+| `trunc(x)` | `trunc(x)` | усечение к нулю (C99) |
+| `cbrt(x)` | `cbrt(x)` | кубический корень (C99) |
+| `log2(x)` | `log2(x)` | логарифм по основанию 2 (C99) |
+| `hypot(x, y)` | `hypot(x, y)` | гипотенуза √(x²+y²) (C99) |
+| `erfc(x)` | `erfc(x)` | дополнение к функции ошибок (C99) |
+| `deg(x)` / `\deg{x}` | `x * (π/180)` | градусы → радианы |
 
 ### 6.8 Модуль (детали парсинга)
 
@@ -517,9 +526,9 @@ a + |b|        →  a + abs(b)
 |-----------|----------------|
 | `x ∈ [a, b]` / `x in [a, b]` | `(x >= a && x <= b)` |
 | `x ∈ (a, b)` | `(x > a && x < b)` |
-| `x ∈ ℕ` / `x ∈ \mathbb{N}` | `(x > 0 && floor(x) == x)` |
-| `x ∈ ℤ` / `x ∈ \mathbb{Z}` | `(floor(x) == x)` |
-| `x ∈ ℝ` | `1` (всегда истина для `num`) |
+| `x ∈ ℕ` / `x ∈ \mathbb{N}` | `(x >= 0 && fmod(x, 1) == 0)` |
+| `x ∈ ℤ` / `x ∈ \mathbb{Z}` | `(fmod(x, 1) == 0)` |
+| `x ∈ ℝ` / `x ∈ \mathbb{R}` | `isfinite(x)` (NaN и Inf не входят в ℝ) |
 | `x ∉ ...` / `x !in ...` | отрицание вышеперечисленного |
 
 ---

@@ -21,8 +21,6 @@ const VALUE_TOKENS = new Set<TokenKind>([
   TokenKind.RBrace,
   TokenKind.Factorial,
   TokenKind.Degree,
-  TokenKind.KwTrue,
-  TokenKind.KwFalse,
   TokenKind.KwNaN,
   TokenKind.KwInf,
 ]);
@@ -91,6 +89,7 @@ const GREEK_LETTERS: ReadonlyMap<string, string> = new Map([
   ['\\Xi',      'Ξ'],
   ['\\Pi',      'Π'],
   ['\\Rho',     'Ρ'],
+  ['\\Sigma',   'Σ'],
   ['\\Tau',     'Τ'],
   ['\\Upsilon', 'Υ'],
   ['\\Phi',     'Φ'],
@@ -203,14 +202,6 @@ export class Lexer {
     }
     if (c === '.' && this.peek(1) !== '.') {
       this.pushTokenAt(TokenKind.Period, '.', 1);
-      return;
-    }
-    if (c === '-' && this.peek(1) === '>') {
-      this.pushTokenAt(TokenKind.Arrow, '->', 2);
-      return;
-    }
-    if (c === ':' && this.peek(1) === '=') {
-      this.pushTokenAt(TokenKind.ColonEq, ':=', 2);
       return;
     }
     if (c === '=' && this.peek(1) === '=') {
@@ -521,7 +512,6 @@ export class Lexer {
         const end = this.capturePos();
         const textKind: Record<string, TokenKind> = {
           if:        TokenKind.KwIf,
-          otherwise: TokenKind.KwOtherwise,
           else:      TokenKind.KwElse,
         };
         const k = textKind[word.trim()];

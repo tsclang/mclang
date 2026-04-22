@@ -10,8 +10,6 @@ const VALUE_END = new Set<TokenKind>([
   TokenKind.Degree,
   TokenKind.KwNaN,
   TokenKind.KwInf,
-  TokenKind.KwTrue,
-  TokenKind.KwFalse,
   TokenKind.SigmaId,
   TokenKind.GammaId,
 ]);
