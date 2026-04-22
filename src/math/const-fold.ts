@@ -1,6 +1,10 @@
-import type { Expr, BinaryExpr, UnaryExpr } from '../ast/nodes.js';
+import type { Expr, BinaryExpr, UnaryExpr, FuncCallExpr, SqrtExpr } from '../ast/nodes.js';
+import type { Span } from '../types/index.js';
+import { ErrorCode } from '../diagnostics/codes.js';
 
-export function constantFold(expr: Expr): Expr {
+export type WarnFn = (code: ErrorCode, message: string, span: Span) => void;
+
+export function constantFold(expr: Expr, warn?: WarnFn): Expr {
   switch (expr.kind) {
     case 'NumberLit':
     case 'IdentExpr':
@@ -8,7 +12,7 @@ export function constantFold(expr: Expr): Expr {
 
     case 'UnaryExpr': {
       const u = expr as UnaryExpr;
-      const operand = constantFold(u.operand);
+      const operand = constantFold(u.operand, warn);
       if (u.op === '-' && operand.kind === 'NumberLit') {
         return { kind: 'NumberLit', value: -operand.value, raw: String(-operand.value), span: u.span };
       }
@@ -17,8 +21,8 @@ export function constantFold(expr: Expr): Expr {
 
     case 'BinaryExpr': {
       const b = expr as BinaryExpr;
-      const left = constantFold(b.left);
-      const right = constantFold(b.right);
+      const left = constantFold(b.left, warn);
+      const right = constantFold(b.right, warn);
       if (left.kind === 'NumberLit' && right.kind === 'NumberLit') {
         const l = left.value;
         const r = right.value;
@@ -27,7 +31,12 @@ export function constantFold(expr: Expr): Expr {
           case '+': result = l + r; break;
           case '-': result = l - r; break;
           case '*': result = l * r; break;
-          case '/': result = r !== 0 ? l / r : undefined; break;
+          case '/':
+            if (r === 0) {
+              warn?.(ErrorCode.DivisionByZero, 'Division by zero in constant expression', b.span);
+            }
+            result = r !== 0 ? l / r : undefined;
+            break;
           case '^': result = Math.pow(l, r); break;
         }
         if (result !== undefined && isFinite(result)) {
@@ -56,12 +65,35 @@ export function constantFold(expr: Expr): Expr {
     }
 
     case 'FracExpr': {
-      const num = constantFold(expr.num);
-      const den = constantFold(expr.den);
-      if (num.kind === 'NumberLit' && den.kind === 'NumberLit' && den.value !== 0) {
-        return { kind: 'NumberLit', value: num.value / den.value, raw: String(num.value / den.value), span: expr.span };
+      const num = constantFold(expr.num, warn);
+      const den = constantFold(expr.den, warn);
+      if (num.kind === 'NumberLit' && den.kind === 'NumberLit') {
+        if (den.value === 0) {
+          warn?.(ErrorCode.DivisionByZero, 'Division by zero in constant expression', expr.span);
+        } else {
+          return { kind: 'NumberLit', value: num.value / den.value, raw: String(num.value / den.value), span: expr.span };
+        }
       }
       return { ...expr, num, den };
+    }
+
+    case 'SqrtExpr': {
+      const sq = expr as SqrtExpr;
+      const radicand = constantFold(sq.radicand, warn);
+      if (radicand.kind === 'NumberLit' && radicand.value < 0) {
+        warn?.(ErrorCode.SqrtOfNegative, `sqrt of negative constant (${radicand.value}) produces NaN`, sq.span);
+      }
+      const degree = sq.degree ? constantFold(sq.degree, warn) : undefined;
+      return { ...sq, radicand, degree };
+    }
+
+    case 'FuncCallExpr': {
+      const fc = expr as FuncCallExpr;
+      const args = fc.args.map(a => constantFold(a, warn));
+      if (fc.name === 'sqrt' && args.length === 1 && args[0]!.kind === 'NumberLit' && args[0]!.value < 0) {
+        warn?.(ErrorCode.SqrtOfNegative, `sqrt of negative constant (${(args[0] as import('../ast/nodes.js').NumberLit).value}) produces NaN`, fc.span);
+      }
+      return { ...fc, args };
     }
 
     default:

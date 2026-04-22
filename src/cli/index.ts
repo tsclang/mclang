@@ -137,22 +137,31 @@ function main(): void {
       : parseSource(tokens);
 
     // Type checking pass
-    const typeErrors = typeCheck(parsedAst);
-    if (typeErrors.length > 0) {
-      for (const err of typeErrors) {
-        const diag: Diagnostic = {
-          level: 'error',
-          code: ErrorCode.ImmutableParameter,
-          message: err.message,
-          primary: { span: err.span, message: err.message, primary: true },
-        };
-        process.stderr.write(formatDiagnostic(diag, sources) + '\n');
-      }
-      process.exit(1);
+    const typeResults = typeCheck(parsedAst);
+    let hasTypeErrors = false;
+    for (const result of typeResults) {
+      const diag: Diagnostic = {
+        level: result.level,
+        code: result.code,
+        message: result.message,
+        primary: { span: result.span, message: result.message, primary: true },
+      };
+      process.stderr.write(formatDiagnostic(diag, sources) + '\n');
+      if (result.level === 'error') hasTypeErrors = true;
     }
+    if (hasTypeErrors) process.exit(1);
 
-    // Constant folding + pattern transforms
-    const ast = transformFile(parsedAst);
+    // Constant folding + pattern transforms (warns on W001, W002)
+    const warnDiag = (code: ErrorCode, message: string, span: import('../types/index.js').Span): void => {
+      const diag: Diagnostic = {
+        level: 'warning',
+        code,
+        message,
+        primary: { span, message, primary: true },
+      };
+      process.stderr.write(formatDiagnostic(diag, sources) + '\n');
+    };
+    const ast = transformFile(parsedAst, warnDiag);
 
     const { c, h } = generateC(ast, { target: targetArg, precision: precisionArg });
 

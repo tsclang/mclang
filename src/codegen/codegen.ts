@@ -1,3 +1,5 @@
+import { CompilerError } from '../diagnostics/index.js';
+import { ErrorCode } from '../diagnostics/codes.js';
 import type {
   File, TopLevelNode, ConstDef, FuncDef,
   Stmt, AssignStmt, IfNode, ForStmt, WhileStmt, ExprStmt,
@@ -576,11 +578,17 @@ export class CGenerator {
         }
       }
     }
-    // Any remaining nodes form a cycle — emit in original order with a warning comment
+    // Any remaining nodes form a cycle — report as a compile error
     if (remaining.size > 0) {
-      for (const name of remaining) {
-        sorted.push(defByName.get(name)!);
-      }
+      const firstName = [...remaining][0]!;
+      const firstDef = defByName.get(firstName)!;
+      const names = [...remaining].join(', ');
+      throw new CompilerError({
+        level: 'error',
+        code: ErrorCode.CircularWhereDep,
+        message: `Circular dependency in where block: ${names}`,
+        primary: { span: firstDef.span, message: `'${firstName}' is part of a dependency cycle`, primary: true },
+      });
     }
 
     // Emit sorted defs

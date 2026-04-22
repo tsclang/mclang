@@ -51,7 +51,6 @@ export const enum ErrorCode {
   SqrtOfNegative         = 'W002',
   UnusedVariable         = 'W003',
   UnreachableCode        = 'W004',
-  PrecisionLoss          = 'W005',
 }
 
 export type ErrorCodeString = `E${string}` | `W${string}`;
@@ -125,6 +124,4 @@ export const ERROR_DESCRIPTIONS: Readonly<Record<ErrorCode, string>> = {
     'A local variable was declared but never used.',
   [ErrorCode.UnreachableCode]:
     'Code after an unconditional return expression can never execute.',
-  [ErrorCode.PrecisionLoss]:
-    'Assigning a f64 value to a f32 context may lose precision.',
 };

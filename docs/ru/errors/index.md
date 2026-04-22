@@ -78,7 +78,6 @@ mclang --explain E030
 | W002 | SqrtOfNegative | `sqrt` от отрицательного числа |
 | W003 | UnusedVariable | Переменная объявлена, но не используется |
 | W004 | UnreachableCode | Недостижимый код после `return` |
-| W005 | PrecisionLoss | Потеря точности при преобразовании типа |
 
 ---
 
