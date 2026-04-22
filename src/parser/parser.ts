@@ -16,6 +16,14 @@ import type {
   TableExpr, StringLitExpr,
 } from '../ast/nodes.js';
 
+// Builtin functions that support \fn^n x → pow(fn(x), n) LaTeX power notation
+const POWER_TRIG_FUNCS = new Set([
+  'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
+  'arcsin', 'arccos', 'arctan', 'asin', 'acos', 'atan',
+  'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
+  'log', 'ln', 'lg', 'exp', 'sqrt',
+]);
+
 export class Parser {
   private readonly tokens: Token[];
   private pos = 0;
@@ -681,6 +689,28 @@ export class Parser {
         const span = this.mkSpan(base.span.start, this.prev().span.end);
         return { kind: 'FuncCallExpr', name: 'inv', args: [base], span };
       }
+      // \sin^2 x → pow(sin(x), 2): builtin zero-arg call followed by power then argument
+      if (base.kind === 'FuncCallExpr' && base.args.length === 0 &&
+          POWER_TRIG_FUNCS.has(base.name)) {
+        let arg: Expr | undefined;
+        if (this.check(TokenKind.LParen)) {
+          this.advance();
+          arg = this.parseExpr();
+          this.expect(TokenKind.RParen);
+        } else if (this.check(TokenKind.LBrace)) {
+          this.advance();
+          arg = this.parseExpr();
+          this.expect(TokenKind.RBrace);
+        } else if (this.check(TokenKind.Identifier) || this.check(TokenKind.Number)) {
+          arg = this.parsePrimary();
+        }
+        if (arg !== undefined) {
+          const callSpan = this.mkSpan(base.span.start, arg.span.end);
+          const newBase: FuncCallExpr = { ...base, args: [arg], span: callSpan };
+          const span = this.mkSpan(base.span.start, arg.span.end);
+          return { kind: 'BinaryExpr', op: '^', left: newBase, right: exp, span };
+        }
+      }
       const span = this.mkSpan(base.span.start, exp.span.end);
       return { kind: 'BinaryExpr', op: '^', left: base, right: exp, span };
     }
@@ -852,13 +882,24 @@ export class Parser {
       return { kind: 'CeilExpr', operand, span };
     }
 
-    // \pm expr
+    // \pm expr → [+expr, -expr]
     if (t.kind === TokenKind.Pm || t.kind === TokenKind.PlusMinus) {
       const start = t.span.start;
       this.advance();
       const operand = this.parseExpr();
       const span = this.mkSpan(start, operand.span.end);
       return { kind: 'PmExpr', operand, span };
+    }
+
+    // \mp expr → [-expr, +expr]  (reversed order vs \pm)
+    // Trick: negate operand → codegen {+(−op), −(−op)} = {−op, +op} ✓
+    if (t.kind === TokenKind.MinusPlus) {
+      const start = t.span.start;
+      this.advance();
+      const operand = this.parseExpr();
+      const span = this.mkSpan(start, operand.span.end);
+      const neg: UnaryExpr = { kind: 'UnaryExpr', op: '-', operand, span: operand.span };
+      return { kind: 'PmExpr', operand: neg, span };
     }
 
     // \frac{a}{b}
@@ -1211,10 +1252,12 @@ export class Parser {
 
   private parseBuiltinFnCall(): FuncCallExpr | SumExpr {
     const t = this.advance();
-    const name = t.value.replace(/^\\/, ''); // strip leading backslash
+    const rawName = t.value.replace(/^\\/, ''); // strip leading backslash
+    // \inf / \sup are semantic aliases for min / max
+    const name = rawName === 'inf' ? 'min' : rawName === 'sup' ? 'max' : rawName;
     const start = t.span.start;
 
-    // \min / \max with subscript → SumExpr aggregator: \min_{x \in v} expr
+    // \min / \max / \inf / \sup with subscript → SumExpr aggregator
     if ((name === 'min' || name === 'max') && this.checkIdentUnderscore()) {
       return this.parseSumExprWith(name as 'min' | 'max', start);
     }
@@ -1453,40 +1496,37 @@ export class Parser {
   }
 
   private parseIntegral(): IntegralExpr {
-    // \int{lo}{hi} body dx   — 'dx' is an identifier: var name starts after 'd'
-    // OR  \int{lo}{hi}{var} body
+    // Standard LaTeX: \int_{lo}^{hi} body dx
+    // Our custom form: \int{lo}{hi} body dx  or  \int{lo}{hi}{var} body
     const start = this.peek().span.start;
     this.expect(TokenKind.Int);
-    // Optional subscript/superscript LaTeX form: skip _ and ^ brace groups
+
+    let lo: Expr;
+    let hi: Expr;
+
     if (this.checkIdentUnderscore()) {
-      this.advance();
+      // Standard LaTeX subscript/superscript form: \int_{lo}^{hi}
+      this.advance(); // consume '_'
       this.expect(TokenKind.LBrace);
-      // skip subscript content
-      let depth = 1;
-      while (depth > 0 && !this.check(TokenKind.EOF)) {
-        if (this.check(TokenKind.LBrace)) depth++;
-        else if (this.check(TokenKind.RBrace)) depth--;
-        if (depth > 0) this.advance();
-      }
+      lo = this.parseExpr();
       this.expect(TokenKind.RBrace);
       if (this.check(TokenKind.Caret)) {
         this.advance();
         this.expect(TokenKind.LBrace);
-        depth = 1;
-        while (depth > 0 && !this.check(TokenKind.EOF)) {
-          if (this.check(TokenKind.LBrace)) depth++;
-          else if (this.check(TokenKind.RBrace)) depth--;
-          if (depth > 0) this.advance();
-        }
+        hi = this.parseExpr();
         this.expect(TokenKind.RBrace);
+      } else {
+        hi = lo; // degenerate — should not appear in practice
       }
+    } else {
+      // Our brace form: \int{lo}{hi}
+      this.expect(TokenKind.LBrace);
+      lo = this.parseExpr();
+      this.expect(TokenKind.RBrace);
+      this.expect(TokenKind.LBrace);
+      hi = this.parseExpr();
+      this.expect(TokenKind.RBrace);
     }
-    this.expect(TokenKind.LBrace);
-    const lo = this.parseExpr();
-    this.expect(TokenKind.RBrace);
-    this.expect(TokenKind.LBrace);
-    const hi = this.parseExpr();
-    this.expect(TokenKind.RBrace);
     // Optional {var} brace — if not present, next ident starting with 'd' is the var
     let varName = 'x';
     if (this.check(TokenKind.LBrace)) {

@@ -59,6 +59,7 @@ export const enum TokenKind {
   Divide = '÷',     // division alias
   Cross = '⨯',      // cross product (vectors)
   PlusMinus = '±',  // multiple return \pm
+  MinusPlus = '∓',  // multiple return \mp (reversed order)
 
   // Comparison
   Eq = '==',
@@ -252,6 +253,8 @@ export const LATEX_COMMANDS: ReadonlyMap<string, TokenKind> = new Map([
   ['\\mod',    TokenKind.LatexMod],
   ['\\min',    TokenKind.LatexMin],
   ['\\max',    TokenKind.LatexMax],
+  ['\\inf',    TokenKind.LatexMin],  // infimum ≡ min for finite sets
+  ['\\sup',    TokenKind.LatexMax],  // supremum ≡ max for finite sets
   // \sigma and \Gamma handled via lookahead in lexer
 ]);
 
@@ -270,7 +273,15 @@ export const LATEX_UNICODE: ReadonlyMap<string, string> = new Map([
   ['\\cdot',   '⋅'],
   ['\\times',  '⨯'],
   ['\\pm',     '±'],
+  ['\\mp',     '∓'],
   ['\\infty',  '∞'],
+  // Logical operators
+  ['\\wedge',  '∧'],
+  ['\\land',   '∧'],
+  ['\\vee',    '∨'],
+  ['\\lor',    '∨'],
+  ['\\neg',    '¬'],
+  ['\\lnot',   '¬'],
 ]);
 
 // Trig function synonyms → canonical name

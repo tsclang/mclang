@@ -33,8 +33,14 @@ const LATEX_FUNC_ALIASES: ReadonlyMap<string, string> = new Map([
   ['\\tg',     'tan'],   ['\\ctg',    'cot'],   ['\\sh',     'sinh'],
   ['\\ch',     'cosh'],  ['\\th',     'tanh'],  ['\\cth',    'coth'],
   ['\\arctg',  'atan'],  ['\\arcctg', 'acot'],  ['\\arccot', 'acot'],
+  // ISO inverse hyperbolic names
+  ['\\arsinh', 'asinh'], ['\\arcosh', 'acosh'], ['\\artanh', 'atanh'],
   // Math functions available as LaTeX commands
   ['\\erf',    'erf'],   ['\\det',    'det'],   ['\\deg',    'deg'],
+  ['\\exp',    'exp'],
+  // Operator names (math operators as function names)
+  ['\\dim',    'dim'],   ['\\ker',    'ker'],
+  ['\\arg',    'arg'],   ['\\hom',    'hom'],
   // \top — used only as postfix in A^{\top} (transpose marker)
   ['\\top',    'top'],
 ]);
@@ -63,6 +69,13 @@ const GREEK_LETTERS: ReadonlyMap<string, string> = new Map([
   ['\\chi',     'χ'],
   ['\\psi',     'ψ'],
   ['\\omega',   'ω'],
+  // Variant Greek letters
+  ['\\varepsilon', 'ε'],
+  ['\\varphi',     'φ'],
+  ['\\vartheta',   'θ'],
+  ['\\varpi',      'π'],
+  ['\\varrho',     'ρ'],
+  ['\\varsigma',   'ς'],
   ['\\Alpha',   'Α'],
   ['\\Beta',    'Β'],
   ['\\Delta',   'Δ'],
@@ -468,6 +481,33 @@ export class Lexer {
       return;
     }
 
+    // \left( \left[ \left| \left. — auto-sized open delimiters (sizing is a no-op)
+    if (cmd === '\\left') {
+      const delim = this.current();
+      this.advance(); // consume delimiter char
+      const end = this.capturePos();
+      if (delim === '(') { this.emitToken(TokenKind.LParen, '(', start, end); return; }
+      if (delim === '[') { this.emitToken(TokenKind.LBracket, '[', start, end); return; }
+      if (delim === '|') { this.emitToken(TokenKind.AbsOpen, '|', start, end); return; }
+      if (delim === '{') { this.emitToken(TokenKind.LBrace, '{', start, end); return; }
+      if (delim === '.') return; // \left. is a null delimiter — emit nothing
+      // Fallback: silently ignore unrecognised delimiter
+      return;
+    }
+
+    // \right) \right] \right| \right. — auto-sized close delimiters (sizing is a no-op)
+    if (cmd === '\\right') {
+      const delim = this.current();
+      this.advance();
+      const end = this.capturePos();
+      if (delim === ')') { this.emitToken(TokenKind.RParen, ')', start, end); return; }
+      if (delim === ']') { this.emitToken(TokenKind.RBracket, ']', start, end); return; }
+      if (delim === '|') { this.emitToken(TokenKind.AbsClose, '|', start, end); return; }
+      if (delim === '}') { this.emitToken(TokenKind.RBrace, '}', start, end); return; }
+      if (delim === '.') return;
+      return;
+    }
+
     // \text{word} or \operatorname{word} — LaTeX text mode; emit keywords or identifier
     if (cmd === '\\text' || cmd === '\\operatorname') {
       if (this.current() === '{') {
@@ -666,6 +706,7 @@ export class Lexer {
       case '÷': return TokenKind.Divide;
       case '⨯': return TokenKind.Cross;
       case '±': return TokenKind.PlusMinus;
+      case '∓': return TokenKind.MinusPlus;
       case '≠': return TokenKind.Neq2;
       case '≤': return TokenKind.Leq2;
       case '≥': return TokenKind.Geq2;
