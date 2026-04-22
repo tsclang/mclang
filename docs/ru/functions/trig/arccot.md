@@ -6,6 +6,9 @@
 
 ```mc
 arccot(x: num) → num
+arcctg(x: num) → num   // русский синоним
+\arccot{x}             // LaTeX
+\arcctg{x}             // LaTeX (русский)
 ```
 
 Реализован через `atan2(1, x)` — корректно обрабатывает `x = 0` (возвращает `π/2`).

@@ -6,6 +6,9 @@
 
 ```latex
 \arcsin{x}    \arccos{x}    \arctan{x}
+
+// Русский синоним арктангенса
+\arctg{x}
 ```
 
 ---
@@ -16,7 +19,7 @@
 |-------|--------|----|
 | `\arcsin{x}` | `arcsin(x)` | `asin(x)` |
 | `\arccos{x}` | `arccos(x)` | `acos(x)` |
-| `\arctan{x}` | `arctan(x)` | `atan(x)` |
+| `\arctan{x}`, `\arctg{x}` | `arctan(x)` | `atan(x)` |
 
 ---
 

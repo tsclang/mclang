@@ -6,18 +6,20 @@
 
 ```mc
 f(x) = \begin{cases}
-    expr_1 & \text{if} cond_1 \\
-    expr_2 & \text{if} cond_2 \\
-    expr_3 & \text{otherwise}
+    expr_1 & cond_1 \\
+    expr_2 & cond_2 \\
+    expr_3
 \end{cases}
 ```
+
+Формат каждого случая: `выражение & условие \\`. Последний случай без `&` — ветка `else`.
 
 Разделитель строк `\\` необязателен — перевод строки тоже работает:
 
 ```mc
 f(x) = \begin{cases}
-    expr_1 & \text{if} cond_1
-    expr_2 & \text{otherwise}
+    expr_1 & cond_1
+    expr_2
 \end{cases}
 ```
 
@@ -43,9 +45,9 @@ sign(x) = \begin{cases}
 
 ```mc
 sign(x) = \begin{cases}
-    1  & \text{if} x > 0 \\
-    -1 & \text{if} x < 0 \\
-    0  & \text{otherwise}
+    1  & x > 0 \\
+    -1 & x < 0 \\
+    0
 \end{cases}
 ```
 
@@ -67,9 +69,9 @@ mc_num sign(mc_num x) {
 
 ```mc
 heaviside(x) = \begin{cases}
-    0   & \text{if} x < 0  \\
-    0.5 & \text{if} x == 0 \\
-    1   & \text{otherwise}
+    0   & x < 0  \\
+    0.5 & x == 0 \\
+    1
 \end{cases}
 ```
 

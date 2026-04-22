@@ -6,6 +6,7 @@
 
 ```mc
 exp(x: num) → num
+\exp{x}              // LaTeX
 ```
 
 Вычисляет e^x.

@@ -6,6 +6,9 @@
 
 ```latex
 \sinh{x}    \cosh{x}    \tanh{x}    \coth{x}
+
+// Русские синонимы
+\sh{x}      \ch{x}      \th{x}      \cth{x}
 ```
 
 ---
@@ -14,10 +17,10 @@
 
 | LaTeX | Си |
 |-------|----|
-| `\sinh{x}` | `sinh(x)` |
-| `\cosh{x}` | `cosh(x)` |
-| `\tanh{x}` | `tanh(x)` |
-| `\coth{x}` | `cosh(x)/sinh(x)` |
+| `\sinh{x}`, `\sh{x}` | `sinh(x)` |
+| `\cosh{x}`, `\ch{x}` | `cosh(x)` |
+| `\tanh{x}`, `\th{x}` | `tanh(x)` |
+| `\coth{x}`, `\cth{x}` | `(1.0/tanh(x))` |
 
 ---
 

@@ -123,24 +123,7 @@ describe('\\exp command', () => {
 
 // ── Operator names (\dim, \ker, \arg, \hom) ──────────────────────────────────
 
-describe('LaTeX operator names', () => {
-  it('\\dim(x) compiles as function call', () => {
-    const { c } = compile('f(x) = \\dim(x)\n');
-    expect(c).toContain('dim(');
-  });
-  it('\\ker(x) compiles as function call', () => {
-    const { c } = compile('f(x) = \\ker(x)\n');
-    expect(c).toContain('ker(');
-  });
-  it('\\arg(x) compiles as function call', () => {
-    const { c } = compile('f(x) = \\arg(x)\n');
-    expect(c).toContain('arg(');
-  });
-  it('\\hom(x) compiles as function call', () => {
-    const { c } = compile('f(x) = \\hom(x)\n');
-    expect(c).toContain('hom(');
-  });
-});
+// \dim, \ker, \arg, \hom removed: no C standard implementation, emit unknown command error
 
 // ── \\inf / \\sup as min / max ────────────────────────────────────────────────
 

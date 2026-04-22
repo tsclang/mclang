@@ -6,6 +6,7 @@
 
 ```mc
 mean(v: num[]) → num
+\bar{v}              // LaTeX-синоним
 ```
 
 ---

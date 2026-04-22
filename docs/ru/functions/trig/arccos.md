@@ -7,6 +7,7 @@
 ```mc
 arccos(x: num) → num
 acos(x: num) → num   // синоним
+\arccos{x}           // LaTeX
 ```
 
 Область: `[-1, 1]`, значения: `[0, π]`. При `|x| > 1` → `nan`.

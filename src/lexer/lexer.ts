@@ -29,16 +29,13 @@ const VALUE_TOKENS = new Set<TokenKind>([
 const LATEX_FUNC_ALIASES: ReadonlyMap<string, string> = new Map([
   // Russian/alternative trig names as LaTeX commands
   ['\\tg',     'tan'],   ['\\ctg',    'cot'],   ['\\sh',     'sinh'],
-  ['\\ch',     'cosh'],  ['\\th',     'tanh'],  ['\\cth',    'coth'],
+  ['\\ch',     'cosh'],  ['\\th',     'tanh'],  ['\\cth',    'coth'],  ['\\coth',   'coth'],
   ['\\arctg',  'atan'],  ['\\arcctg', 'acot'],  ['\\arccot', 'acot'],
   // ISO inverse hyperbolic names
   ['\\arsinh', 'asinh'], ['\\arcosh', 'acosh'], ['\\artanh', 'atanh'],
   // Math functions available as LaTeX commands
   ['\\erf',    'erf'],   ['\\det',    'det'],   ['\\deg',    'deg'],
   ['\\exp',    'exp'],
-  // Operator names (math operators as function names)
-  ['\\dim',    'dim'],   ['\\ker',    'ker'],
-  ['\\arg',    'arg'],   ['\\hom',    'hom'],
   // \top — used only as postfix in A^{\top} (transpose marker)
   ['\\top',    'top'],
 ]);

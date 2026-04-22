@@ -7,8 +7,11 @@
 ## Синтаксис
 
 ```mc
-\pm expr
-±expr      // Unicode
+\pm expr       // возвращает [+expr, -expr]
+±expr          // Unicode-синоним
+
+\mp expr       // возвращает [-expr, +expr] (обратный порядок)
+∓expr          // Unicode-синоним
 ```
 
 ---

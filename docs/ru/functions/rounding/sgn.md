@@ -6,7 +6,6 @@
 
 ```mc
 sgn(x: num) → num
-sign(x: num) → num   // синоним
 ```
 
 ---

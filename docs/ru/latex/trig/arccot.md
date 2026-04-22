@@ -1,3 +1,5 @@
-# \arccot
+# \arccot, \arcctg
 
-Смотри [\arcsin, \arccos, \arctan](arcsin.md). `arccot(x)` транслируется в `π/2 - atan(x)`.
+Синонимы: `\arccot{x}` и `\arcctg{x}` — оба транслируются в `atan2(1.0, x)`.
+
+Смотри [arctan](arctan.md) · [functions: arccot](../../functions/trig/arccot.md).

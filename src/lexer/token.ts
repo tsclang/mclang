@@ -269,7 +269,7 @@ export const LATEX_UNICODE: ReadonlyMap<string, string> = new Map([
 export const TRIG_SYNONYMS: ReadonlyMap<string, string> = new Map([
   ['tg',    'tan'],
   ['ctg',   'cot'],
-  ['tg',    'tan'],
+  ['cth',   'coth'],
   ['sh',    'sinh'],
   ['ch',    'cosh'],
   ['th',    'tanh'],

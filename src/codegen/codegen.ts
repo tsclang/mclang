@@ -145,9 +145,6 @@ export class CGenerator {
   // Variable name overrides for derivative/limit generation
   private varOverride: Map<string, string> = new Map();
 
-  // Table registry: name → 'numeric' | 'string'
-  private tableKind: Map<string, 'numeric' | 'string'> = new Map();
-
   constructor(ast: File, opts: CgenOptions = {}) {
     this.ast = ast;
     this.opts = {
@@ -313,12 +310,6 @@ export class CGenerator {
       '  for(int i=0;i<r*c;i++) out[i]=0.0; return out; }',
       'static inline mc_num* mc_ones(mc_num* out, int r, int c) {',
       '  for(int i=0;i<r*c;i++) out[i]=1.0; return out; }',
-      // Table interpolation (linear)
-      'static inline mc_num mc_interp(mc_num x, const mc_num* xs, const mc_num* ys, int n) {',
-      '  if(n<=0) return NAN; if(x<=xs[0]) return ys[0]; if(x>=xs[n-1]) return ys[n-1];',
-      '  for(int i=0;i<n-1;i++) if(x<=xs[i+1]) {',
-      '    mc_num t=(x-xs[i])/(xs[i+1]-xs[i]); return ys[i]+t*(ys[i+1]-ys[i]); }',
-      '  return ys[n-1]; }',
       '',
     ];
     for (const line of h) this.emit(line);
@@ -1019,13 +1010,6 @@ export class CGenerator {
       return `mc_ones(${tmp}, (int)(${r}), (int)(${c}))`;
     }
 
-    // Numeric table lookup → mc_interp
-    if (this.tableKind.get(expr.name) === 'numeric' && expr.args.length === 1) {
-      const cname = translit(expr.name);
-      const x = this.genExpr(expr.args[0]!);
-      return `mc_interp(${x}, _${cname}_xs, _${cname}_ys, _${cname}_n)`;
-    }
-
     // \log_{base}{x} → log(x) / log(base)
     if (expr.name === '__log_base' && expr.args.length === 2) {
       const x = this.genExpr(expr.args[0]!);
@@ -1453,7 +1437,7 @@ const FUNC_MAP: ReadonlyMap<string, string> = new Map([
   ['dot',    'mc_dot'],  ['cross',  'mc_cross3'],
   ['sum',    'mc_sum'],  ['product','mc_product'],
   ['is_nan',    'isnan'],  ['is_inf',    'isinf'],  ['is_finite', 'isfinite'],
-  ['atan2',  'atan2'],   ['hypot', 'hypot'],
+  ['atan2',  'atan2'],   ['arctan2', 'atan2'],  ['hypot', 'hypot'],
 ]);
 
 export function generateC(ast: File, opts?: CgenOptions): CgenOutput {

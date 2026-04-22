@@ -5,9 +5,10 @@
 ## Сигнатура
 
 ```mc
-arctan(x: num) → num         // однаргументный
+arctan(x: num) → num           // однаргументный
 arctan2(y: num, x: num) → num  // двухаргументный
-atan(x) / atan2(y, x)        // синонимы
+arctg(x) / atan(x) / atan2(y, x)  // синонимы
+\arctan{x} / \arctg{x}        // LaTeX
 ```
 
 Область: ℝ, значения: `(-π/2, π/2)` для `arctan`, `(-π, π]` для `arctan2`.

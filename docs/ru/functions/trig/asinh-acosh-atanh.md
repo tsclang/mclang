@@ -8,6 +8,10 @@
 asinh(x: num) → num    // arcsh(x) — синоним
 acosh(x: num) → num    // arcch(x) — синоним
 atanh(x: num) → num    // arcth(x) — синоним
+
+\arsinh{x}             // LaTeX (ISO)
+\arcosh{x}             // LaTeX (ISO)
+\artanh{x}             // LaTeX (ISO)
 ```
 
 ---

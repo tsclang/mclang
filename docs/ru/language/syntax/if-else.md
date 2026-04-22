@@ -11,13 +11,13 @@ f(x) = if (x > 0) x else -x
 Скобки вокруг условия необязательны:
 
 ```mc
-f(x) = if x > 0 then x else -x
+f(x) = if x > 0 x else -x
 ```
 
 Цепочка:
 
 ```mc
-sign(x) = if x > 0 then 1 else if x < 0 then -1 else 0
+sign(x) = if x > 0 1 else if x < 0 -1 else 0
 ```
 
 ---
@@ -76,7 +76,7 @@ sign(x) = \begin{cases}
 ## Генерируемый C-код
 
 ```mc
-sign(x) = if x > 0 then 1 else if x < 0 then -1 else 0
+sign(x) = if x > 0 1 else if x < 0 -1 else 0
 ```
 
 ```c

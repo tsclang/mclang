@@ -53,7 +53,7 @@
 \cos^{2}(x)    → pow(cos(x), 2)
 ```
 
-Поддерживаемые функции: `\sin`, `\cos`, `\tan`, `\cot`, `\sec`, `\csc`, `\arcsin`, `\arccos`, `\arctan`, `\sinh`, `\cosh`, `\tanh`, `\ln`, `\log`, `\exp`, `\sqrt`.
+Поддерживаемые функции: `\sin`, `\cos`, `\tan`, `\cot`, `\sec`, `\csc`, `\arcsin`, `\arccos`, `\arctan`, `\sinh`, `\cosh`, `\tanh`, `\arsinh`, `\arcosh`, `\artanh`, `\ln`, `\log`, `\lg`, `\exp`, `\sqrt`.
 
 ---
 
@@ -287,13 +287,10 @@ slope = \frac{d}{dx} x^2 + 2x
 | `\gcd(a, b)` | `gcd(a, b)` | алгоритм Евклида |
 | `\lcm(a, b)` | `lcm(a, b)` | `a * b / gcd(a, b)` |
 | `\erf(x)` | `erf(x)` | `erf(x)` (math.h C99); **только `()`**, не `{}` |
+| — | `erfc(x)` | `erfc(x)` (math.h C99); только plain-форма, `\erfc` не поддерживается |
 | `\Gamma{x}` | `gamma(x)` | `tgamma(x)` (math.h C99) |
 | `\bar{v}` | `mean(v)` | среднее для `num[]` |
 | `\sigma{v}` | `std(v)` | стандартное отклонение для `num[]` |
-| `\dim(x)` | `dim(x)` | вызов функции `dim` |
-| `\ker(x)` | `ker(x)` | вызов функции `ker` |
-| `\arg(x)` | `arg(x)` | вызов функции `arg` |
-| `\hom(x)` | `hom(x)` | вызов функции `hom` |
 | `\inf(v)` | `min(v)` | инфимум (≡ `min` для конечных множеств) |
 | `\sup(v)` | `max(v)` | супремум (≡ `max` для конечных множеств) |
 
@@ -316,15 +313,15 @@ slope = \frac{d}{dx} x^2 + 2x
 
 ```
 f(x) = \begin{cases}
-    x^2    & x < 0 \\
-    0      & x == 0 \\
-    \sqrt{x} & x > 0
+    x^2      & x < 0 \\
+    0        & x == 0 \\
+    \sqrt{x}
 \end{cases}
 ```
 
 Правила:
 - Каждый случай: `выражение & условие \\`
-- Последний случай может быть без условия (`& \text{otherwise}` или просто без `&`) — это ветка `else`
+- Последний случай без `&` — ветка `else`
 - Разворачивается в цепочку `if/else` в Си
 
 ```c
@@ -349,6 +346,8 @@ return sqrt(x);
 | `\zeta` | `ζ` | `__uni_zeta` |
 | `\eta` | `η` | `__uni_eta` |
 | `\theta` | `θ` | `__uni_theta` |
+| `\iota` | `ι` | `__uni_iota` |
+| `\kappa` | `κ` | `__uni_kappa` |
 | `\lambda` | `λ` | `__uni_lambda` |
 | `\mu` | `μ` | `__uni_mu` |
 | `\nu` | `ν` | `__uni_nu` |
@@ -356,7 +355,7 @@ return sqrt(x);
 | `\rho` | `ρ` | `__uni_rho` |
 | `\sigma` | `σ` | `__uni_sigma` |
 | `\tau` | `τ` | `__uni_tau` (= 2π, встроенная константа) |
-| `\upsilon` | `υ` | `__uni_upsilon` |
+| `\upsilon` | `υ` | `__uni_ups` |
 | `\chi` | `χ` | `__uni_chi` |
 | `\psi` | `ψ` | `__uni_psi` |
 | `\omega` | `ω` | `__uni_omega` |

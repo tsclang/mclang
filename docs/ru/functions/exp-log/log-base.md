@@ -6,7 +6,8 @@
 
 ```mc
 log(base: num, x: num) → num
-\log_{base}{x}               // LaTeX
+\log_{base}{x}               // LaTeX (стандартная форма)
+\log{base}{x}                // LaTeX (краткая форма)
 ```
 
 ---

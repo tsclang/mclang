@@ -13,12 +13,13 @@ export type TypeError = {
 // Known builtin functions (no arity check — variadic or well-known)
 const BUILTINS = new Set([
   'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
-  'asin', 'acos', 'atan', 'atan2', 'acot',
+  'asin', 'acos', 'atan', 'atan2', 'arctan2', 'acot',
+  'arcsin', 'arccos', 'arctan', 'arccot',
   'sinh', 'cosh', 'tanh', 'coth', 'asinh', 'acosh', 'atanh',
-  'sqrt', 'cbrt', 'exp', 'log', 'log2', 'log10',
+  'sqrt', 'cbrt', 'exp', 'log', 'ln', 'log2', 'log10', 'lg', 'deg',
   'abs', 'fabs', 'floor', 'ceil', 'round', 'trunc',
   'min', 'max', 'fmin', 'fmax', 'hypot',
-  'pow', 'sign', 'sgn', 'erf', 'erfc',
+  'pow', 'sgn', 'erf', 'erfc',
   'sum', 'product', 'mean', 'std', 'norm',
   'dot', 'cross', 'transpose', 'det', 'inv',
   'I', 'zeros', 'ones',

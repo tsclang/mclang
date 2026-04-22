@@ -7,6 +7,7 @@
 ```mc
 arcsin(x: num) → num    // результат в радианах
 asin(x: num) → num      // синоним
+\arcsin{x}              // LaTeX
 ```
 
 ---

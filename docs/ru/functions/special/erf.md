@@ -8,6 +8,7 @@
 
 ```mc
 erf(x: num) → num
+\erf(x)              // LaTeX
 ```
 
 ```c

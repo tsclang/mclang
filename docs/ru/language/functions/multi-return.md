@@ -28,9 +28,10 @@ mc_num* minmax(mc_num a, mc_num b) {
 
 ---
 
-## `\pm` — плюс-минус
+## `\pm` и `\mp` — плюс-минус / минус-плюс
 
-`\pm expr` или `±expr` возвращает `[+expr, -expr]`:
+`\pm expr` или `±expr` возвращает `[+expr, -expr]`.
+`\mp expr` или `∓expr` возвращает `[-expr, +expr]` (обратный порядок):
 
 ```mc
 quadratic_roots(a, b, c) =
