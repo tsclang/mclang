@@ -1,1 +1,0 @@
-C:\dev\games\ts\mclang\examples\ballistics\src\rust\target\release\ballistics.exe: C:\dev\games\ts\mclang\examples\ballistics\src\rust\../../mc/ballistics_bindings.rs C:\dev\games\ts\mclang\examples\ballistics\src\rust\build.rs C:\dev\games\ts\mclang\examples\ballistics\src\rust\main.rs

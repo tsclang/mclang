@@ -1,1 +1,0 @@
-C:\dev\games\ts\mclang\examples\statistics\src\rust\target\release\statistics.exe: C:\dev\games\ts\mclang\examples\statistics\src\rust\../../mc/statistics_bindings.rs C:\dev\games\ts\mclang\examples\statistics\src\rust\build.rs C:\dev\games\ts\mclang\examples\statistics\src\rust\main.rs

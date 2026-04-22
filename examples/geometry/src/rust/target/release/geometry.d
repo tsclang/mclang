@@ -1,1 +1,0 @@
-C:\dev\games\ts\mclang\examples\geometry\src\rust\target\release\geometry.exe: C:\dev\games\ts\mclang\examples\geometry\src\rust\../../mc/geometry_bindings.rs C:\dev\games\ts\mclang\examples\geometry\src\rust\build.rs C:\dev\games\ts\mclang\examples\geometry\src\rust\main.rs
