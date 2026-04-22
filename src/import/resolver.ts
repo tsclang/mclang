@@ -87,20 +87,24 @@ export function resolveImports(
       const transitive = collectNodes(depPath, depSource);
       result.push(...transitive);
 
-      // Own public nodes of the dep only if this is the first time we include it
+      // Own nodes of the dep only if this is the first time we include it
       if (alreadyIncluded) continue;
       const own = ownNodes.get(depPath) ?? [];
       for (const depNode of own) {
         if (!isNamedNode(depNode)) continue;
         const name = getNodeName(depNode);
-        if (name.startsWith('_')) continue;
+        const isPrivate = name.startsWith('_');
 
         if (imp.names !== undefined) {
-          if (!imp.names.includes(name)) continue;
+          // Named import: include only the requested names (never private)
+          if (isPrivate || !imp.names.includes(name)) continue;
           result.push(depNode);
         } else if (imp.alias !== undefined) {
+          // Aliased import: include public names with prefix (private stay in dep)
+          if (isPrivate) continue;
           result.push(renameNode(depNode, `${imp.alias}__${name}`));
         } else {
+          // Bare import: include everything — private helpers are needed by public fns
           result.push(depNode);
         }
       }

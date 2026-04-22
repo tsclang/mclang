@@ -1,0 +1,11 @@
+[package]
+name = "transforms_3d"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "transforms_3d"
+path = "src/main.rs"
+
+[build-dependencies]
+cc = "1"

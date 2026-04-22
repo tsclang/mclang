@@ -56,12 +56,14 @@ describe('import — basic', () => {
     expect(names.indexOf('f')).toBeLessThan(names.indexOf('g'));
   });
 
-  it('import all — private defs (_prefix) NOT included', () => {
+  it('import all — private defs (_prefix) included for compilation', () => {
+    // Private helpers from bare imports must be present in the merged AST so that
+    // public functions which call them can compile. Header exclusion is the codegen's job.
     const file = resolve({
       '/entry.mc': 'import "./lib.mc"\ng(x) = x',
-      '/lib.mc': '_helper(x) = x\npub(x) = x',
+      '/lib.mc': '_helper(x) = x\npub(x) = _helper(x)',
     });
-    expect(funcNames(file)).not.toContain('_helper');
+    expect(funcNames(file)).toContain('_helper');
     expect(funcNames(file)).toContain('pub');
   });
 

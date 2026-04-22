@@ -1,0 +1,11 @@
+[package]
+name = "linear_regression"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "linear_regression"
+path = "src/main.rs"
+
+[build-dependencies]
+cc = "1"

@@ -144,6 +144,9 @@ export class CGenerator {
   // Sentinel value for early-return guards in the current function ('NAN' or 'NULL')
   private curRetSentinel: string = 'NAN';
 
+  // Names of parameters in the current function being generated (for constant shadowing)
+  private curFuncParamNames: Set<string> = new Set();
+
   // Counter for unique local variable names
   private localArrCount = 0;
 
@@ -329,6 +332,8 @@ export class CGenerator {
       '  out[3]=(m[5]*m[6]-m[3]*m[8])/d; out[4]=(m[0]*m[8]-m[2]*m[6])/d; out[5]=(m[2]*m[3]-m[0]*m[5])/d;',
       '  out[6]=(m[3]*m[7]-m[4]*m[6])/d; out[7]=(m[1]*m[6]-m[0]*m[7])/d; out[8]=(m[0]*m[4]-m[1]*m[3])/d; }',
       'static inline mc_num* mc_inv(const mc_num* m, mc_num* out, int n) {',
+      '  if(n==2){mc_num d=m[0]*m[3]-m[1]*m[2];if(fabs(d)<1e-15){out[0]=out[1]=out[2]=out[3]=NAN;return out;}',
+      '    out[0]=m[3]/d;out[1]=-m[1]/d;out[2]=-m[2]/d;out[3]=m[0]/d;return out;}',
       '  if(n==3){mc_inv3(m,out);return out;} return out; }',
       // Array generators
       'static inline mc_num* mc_identity(mc_num* out, int n) {',
@@ -415,6 +420,7 @@ export class CGenerator {
     this.emit(`${sig} {`);
     this.indent++;
     this.curRetSentinel = retType === 'mc_num*' ? 'NULL' : 'NAN';
+    this.curFuncParamNames = new Set(node.params.map(p => p.name));
     this.genArrayLengthGuards(node.params);
     if (node.where) this.genWhereBlock(node.where);
     this.genFuncBody(node.body);
@@ -453,6 +459,7 @@ export class CGenerator {
     this.emit(`${implSig} {`);
     this.indent++;
     this.curRetSentinel = retType === 'mc_num*' ? 'NULL' : 'NAN';
+    this.curFuncParamNames = new Set(params.map(p => p.name));
     this.genArrayLengthGuards(params);
     if (node.where) this.genWhereBlock(node.where);
     this.genFuncBody(node.body);
@@ -903,9 +910,11 @@ export class CGenerator {
         return `mc_scale(${s}, ${v}, ${tmp}, ${len})`;
       }
     }
-    // e^x → exp(x) optimization
+    // e^x → exp(x) optimization (only when 'e' is the Euler constant, not a local param)
     if ((expr.op === '^' || expr.op === '**') &&
-        expr.left.kind === 'IdentExpr' && (expr.left as import('../ast/nodes.js').IdentExpr).name === 'e') {
+        expr.left.kind === 'IdentExpr' &&
+        (expr.left as import('../ast/nodes.js').IdentExpr).name === 'e' &&
+        !this.curFuncParamNames.has('e')) {
       const r2 = this.genExpr(expr.right);
       return `exp(${r2})`;
     }
@@ -1013,14 +1022,18 @@ export class CGenerator {
       const arg = expr.args[0]!;
       const m = this.genExpr(arg);
       const ty = this.inferType(arg);
-      const n = ty?.kind === 'NumType' && ty.staticSize !== undefined ? String(ty.staticSize) : '3';
+      const n = ty?.kind === 'NumType' && ty.staticSize !== undefined
+        ? String(ty.staticSize)
+        : arg.kind === 'IdentExpr' ? `${translit((arg as IdentExpr).name)}_rows` : '3';
       return `mc_det(${m}, ${n})`;
     }
     if (expr.name === 'inv' && expr.args.length === 1) {
       const arg = expr.args[0]!;
       const m = this.genExpr(arg);
       const ty = this.inferType(arg);
-      const n = ty?.kind === 'NumType' && ty.staticSize !== undefined ? String(ty.staticSize) : '3';
+      const n = ty?.kind === 'NumType' && ty.staticSize !== undefined
+        ? String(ty.staticSize)
+        : arg.kind === 'IdentExpr' ? `${translit((arg as IdentExpr).name)}_rows` : '3';
       const tmp = `_tmp_${this._tmpIdx++}`;
       this.emit(`static mc_num ${tmp}[256];`);
       return `mc_inv(${m}, ${tmp}, ${n})`;
@@ -1137,10 +1150,30 @@ export class CGenerator {
       }
     }
 
-    const args = expr.args.map(a => this.genExpr(a)).join(', ');
     const name = translit(expr.name);
+    const isMapped = FUNC_MAP.has(name);
+    let argStrs: string[];
+    if (!isMapped) {
+      // User-defined function: expand array/matrix args to include implicit length parameters
+      argStrs = expr.args.map(a => {
+        const ty = this.inferType(a);
+        if (ty?.kind === 'NumType' && ty.dims >= 2) {
+          const m = this.genExpr(a);
+          const baseName = a.kind === 'IdentExpr' ? translit((a as IdentExpr).name) : m;
+          return `${m}, ${baseName}_rows, ${baseName}_cols`;
+        }
+        if (ty?.kind === 'NumType' && ty.dims === 1) {
+          const v = this.genExpr(a);
+          const len = this.inferLenExpr(a);
+          return `${v}, ${len}`;
+        }
+        return this.genExpr(a);
+      });
+    } else {
+      argStrs = expr.args.map(a => this.genExpr(a));
+    }
     const mapped = FUNC_MAP.get(name) ?? name;
-    return `${mapped}(${args})`;
+    return `${mapped}(${argStrs.join(', ')})`;
   }
 
   private genIfExpr(expr: IfExpr): string {
