@@ -141,6 +141,9 @@ export class CGenerator {
   // Track declared local variables to avoid re-declaring (shadowing) in loops
   private declaredLocals: Set<string> = new Set();
 
+  // Sentinel value for early-return guards in the current function ('NAN' or 'NULL')
+  private curRetSentinel: string = 'NAN';
+
   // Counter for unique local variable names
   private localArrCount = 0;
 
@@ -411,6 +414,7 @@ export class CGenerator {
     }
     this.emit(`${sig} {`);
     this.indent++;
+    this.curRetSentinel = retType === 'mc_num*' ? 'NULL' : 'NAN';
     this.genArrayLengthGuards(node.params);
     if (node.where) this.genWhereBlock(node.where);
     this.genFuncBody(node.body);
@@ -433,7 +437,7 @@ export class CGenerator {
     const first = translit(arrParams[0]!.name);
     for (let i = 1; i < arrParams.length; i++) {
       const other = translit(arrParams[i]!.name);
-      this.emit(`if (${first}_len != ${other}_len) return NAN;`);
+      this.emit(`if (${first}_len != ${other}_len) return ${this.curRetSentinel};`);
     }
   }
 
@@ -448,6 +452,7 @@ export class CGenerator {
     // Emit the implementation body
     this.emit(`${implSig} {`);
     this.indent++;
+    this.curRetSentinel = retType === 'mc_num*' ? 'NULL' : 'NAN';
     this.genArrayLengthGuards(params);
     if (node.where) this.genWhereBlock(node.where);
     this.genFuncBody(node.body);
@@ -541,7 +546,7 @@ export class CGenerator {
       case 'SliceExpr':   return true;
       case 'PmExpr':      return true;
       case 'FuncCallExpr':
-        return ['cross', 'transpose', 'inv', 'I', 'zeros', 'ones'].includes(expr.name);
+        return ['cross', 'transpose', 'inv', 'I', 'identity', 'matmul', 'zeros', 'ones'].includes(expr.name);
       default: return false;
     }
   }
@@ -601,7 +606,7 @@ export class CGenerator {
     // Emit guards after all defs (guards depend on defs, not on each other)
     for (const line of guards) {
       const cond = this.genExpr((line as { kind: 'WhereGuard'; expr: Expr }).expr);
-      this.emit(`if (!(${cond})) return NAN;`);
+      this.emit(`if (!(${cond})) return ${this.curRetSentinel};`);
     }
   }
 
@@ -609,7 +614,7 @@ export class CGenerator {
 
   private genFuncBody(stmts: Stmt[]): void {
     if (stmts.length === 0) {
-      this.emit('return NAN;');
+      this.emit(`return ${this.curRetSentinel};`);
       return;
     }
 
