@@ -78,5 +78,4 @@ mc_num _sol_0 = NAN;
 
 ## Смотри также
 
-- [interp](../interp.md)
 - [is_nan, is_inf, is_finite](is-nan-inf.md)

@@ -170,9 +170,6 @@
 [limit](functions/calculus/limit.md) ·
 [derivative](functions/calculus/derivative.md)
 
-### Прочее
-[interp](functions/interp.md)
-
 ---
 
 ## LaTeX-справочник
