@@ -80,6 +80,48 @@ describe('--target c (default)', () => {
   });
 });
 
+// ── AVR target ────────────────────────────────────────────────────────────────
+
+describe('--target avr', () => {
+  it('emits MC_AVR_TARGET define in .c', () => {
+    const { c } = compile('f(x) = x\n', { target: 'avr' });
+    expect(c).toContain('#define MC_AVR_TARGET 1');
+  });
+
+  it('emits MC_AVR_TARGET define in .h', () => {
+    const { h } = compile('f(x) = x\n', { target: 'avr' });
+    expect(h).toContain('#define MC_AVR_TARGET 1');
+  });
+
+  it('emits INFINITY fallback', () => {
+    const { c } = compile('f(x) = x\n', { target: 'avr' });
+    expect(c).toContain('#ifndef INFINITY');
+  });
+
+  it('emits NAN fallback', () => {
+    const { c } = compile('f(x) = x\n', { target: 'avr' });
+    expect(c).toContain('#ifndef NAN');
+  });
+
+  it('emits isnan/isinf/isfinite fallbacks', () => {
+    const { c } = compile('f(x) = x\n', { target: 'avr' });
+    expect(c).toContain('#ifndef isnan');
+    expect(c).toContain('#ifndef isinf');
+    expect(c).toContain('#ifndef isfinite');
+  });
+
+  it('default precision is f32 (set in CLI; codegen itself accepts any)', () => {
+    const { c } = compile('f(x) = x\n', { target: 'avr', precision: 'f32' });
+    expect(c).toContain('#define MC_USE_FAST_FLOAT');
+    expect(c).toContain('#define MC_AVR_TARGET 1');
+  });
+
+  it('does not emit EMSCRIPTEN_KEEPALIVE', () => {
+    const { c } = compile('f(x) = x\n', { target: 'avr' });
+    expect(c).not.toContain('EMSCRIPTEN_KEEPALIVE');
+  });
+});
+
 // ── Physical constants ────────────────────────────────────────────────────────
 
 describe('physical constants', () => {

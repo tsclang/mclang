@@ -30,7 +30,7 @@ mclang /absolute/path/to/math.mc
 
 ## Опции
 
-### `--target <c|shared|wasm|rust|node>`
+### `--target <c|shared|wasm|rust|node|avr>`
 
 Выбор типа выходного файла.
 
@@ -41,6 +41,7 @@ mclang /absolute/path/to/math.mc
 | `wasm` | `file.js` + `file.wasm` | JavaScript / Node.js / браузер (через Emscripten) |
 | `rust` | `file.c` + `file.h` + `file_bindings.rs` | Rust FFI |
 | `node` | `file.c` + `file.h` + `file_napi.c` + `binding.gyp` + `file_bindings.js` | Node.js нативный аддон (N-API, без Emscripten) |
+| `avr` | `file.c` + `file.h` | Arduino / STM32 / ESP32 (с fallback-макросами IEEE 754) |
 
 ```bash
 mclang physics.mc --target c
@@ -48,6 +49,25 @@ mclang physics.mc --target shared
 mclang physics.mc --target wasm
 mclang physics.mc --target rust
 mclang physics.mc --target node
+mclang sensors.mc --target avr --precision f32
+```
+
+#### Таргет avr: особенности
+
+- Добавляет `#define MC_AVR_TARGET 1` в `.c` и `.h`
+- Генерирует fallback-макросы `INFINITY`, `NAN`, `isnan`, `isinf`, `isfinite` (через `__builtin_*`)
+- Дефолтная точность — `f32` (можно переопределить через `--precision`)
+- Совместим с `avr-gcc`, `arm-none-eabi-gcc`, `xtensa-esp32-elf-gcc`
+
+```bash
+# Arduino (ATmega328P)
+avr-gcc -mmcu=atmega328p -DF_CPU=16000000UL -Os -o sensors.o sensors.c -lm
+
+# STM32 (ARM Cortex-M4)
+arm-none-eabi-gcc -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -Os -o sensors.o sensors.c -lm
+
+# ESP32
+xtensa-esp32-elf-gcc -Os -o sensors.o sensors.c -lm
 ```
 
 ### `--precision <f64|f32|fixed>`
@@ -96,10 +116,11 @@ mclang formula.mc --no-color 2>&1 | grep Error
 
 ### `--explain <КОД>`
 
-Объясняет код ошибки компилятора.
+Объясняет код ошибки компилятора. Полный список кодов — в [справочнике ошибок](errors/index.md).
 
 ```bash
 mclang --explain E030
+mclang --explain W003
 ```
 
 ---

@@ -6,6 +6,7 @@
 
 ```mc
 a xor b
+a ⊕ b     // Unicode-синоним
 ```
 
 ---

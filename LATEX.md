@@ -76,7 +76,9 @@
 | LaTeX | Синоним | Трансляция в Си |
 |-------|---------|----------------|
 | `\sum_{i=a}^{b} expr` | `∑(i=a, b) expr` | `for`-цикл с аккумулятором |
-| `\prod_{i=a}^{b} expr` | `∏{i=a}{b} expr` | `for`-цикл с аккумулятором |
+| `\prod_{i=a}^{b} expr` | `∏(i=a, b) expr` | `for`-цикл с аккумулятором |
+
+Символы `∑` и `∏` (Unicode U+2211, U+220F) принимаются наравне с `\sum` и `\prod`.
 
 ```c
 mc_num _acc = 0;   // для \sum; 1.0 для \prod
@@ -212,6 +214,7 @@ slope = \frac{d}{dx} x^2 + 2x
 | `\wedge`, `\land` | `∧` | `&&` |
 | `\vee`, `\lor` | `∨` | `\|\|` |
 | `\neg`, `\lnot` | `¬` | `!` |
+| — | `⊕`, ключевое слово `xor` | логический XOR |
 
 ---
 
@@ -225,6 +228,7 @@ slope = \frac{d}{dx} x^2 + 2x
 | `\left[ expr \right]` | `[expr]` |
 | `\left\| expr \right\|` | `\|expr\|` → `fabs(expr)` |
 | `\left. expr \right.` | `expr` (null delimiter) |
+| `\left{ expr \right}` | silently ignored (фигурные скобки используются только как группировка в LaTeX) |
 
 ---
 
@@ -233,10 +237,11 @@ slope = \frac{d}{dx} x^2 + 2x
 | LaTeX / Unicode | Синоним | Трансляция |
 |----------------|---------|-----------|
 | `A^{\top}`, `A^{T}` | `transpose(A)` | перестановка индексов |
-| `A^{-1}` | `inv(A)` | обратная матрица |
-| `\det(A)` | `det(A)` | определитель |
-| `\cdot` | `⋅` | dispatch по типу: `*` / dot / матричное |
+| `A^{-1}` | `inv(A)` | обратная матрица (до 3×3) |
+| `\det(A)` | `det(A)` | определитель (до 3×3); форма `\det{A}` тоже допустима |
+| `\cdot` | `⋅` | dispatch по типу: `*` (скаляры) / `mc_dot` (векторы) / `mc_matmul` (матрицы) |
 | `\times` | `⨯` | векторное произведение `cross(a, b)` |
+| `.*` | — | поэлементное (Hadamard) произведение массивов → `mc_mul_arr` |
 
 ---
 
@@ -283,16 +288,37 @@ slope = \frac{d}{dx} x^2 + 2x
 |-------|---------|----------------|
 | `\min(a, b)` | `min(a, b)` | `fmin(a, b)` |
 | `\max(a, b)` | `max(a, b)` | `fmax(a, b)` |
-| `\text{sgn}(x)` | `\operatorname{sgn}(x)`, `sgn(x)` | `(x > 0) - (x < 0)` |
-| `\gcd(a, b)` | `gcd(a, b)` | алгоритм Евклида |
-| `\lcm(a, b)` | `lcm(a, b)` | `a * b / gcd(a, b)` |
+| `\text{sgn}(x)` | `\operatorname{sgn}(x)`, `sgn(x)` | `mc_sgn(x)` → `(x>0)-(x<0)` |
+| `\gcd(a, b)` | `gcd(a, b)` | алгоритм Евклида → `mc_gcd` |
+| `\lcm(a, b)` | `lcm(a, b)` | `a * b / gcd(a, b)` → `mc_lcm` |
 | `\erf(x)` | `erf(x)` | `erf(x)` (math.h C99); **только `()`**, не `{}` |
 | — | `erfc(x)` | `erfc(x)` (math.h C99); только plain-форма, `\erfc` не поддерживается |
 | `\Gamma{x}` | `gamma(x)` | `tgamma(x)` (math.h C99) |
-| `\bar{v}` | `mean(v)` | среднее для `num[]` |
-| `\sigma{v}` | `std(v)` | стандартное отклонение для `num[]` |
+| `\bar{v}` | `mean(v)` | среднее для `num[]` → `mc_mean` |
+| `\sigma{v}` | `std(v)` | стандартное отклонение для `num[]` → `mc_std` |
 | `\inf(v)` | `min(v)` | инфимум (≡ `min` для конечных множеств) |
 | `\sup(v)` | `max(v)` | супремум (≡ `max` для конечных множеств) |
+
+**Механизм `\text{name}` и `\operatorname{name}`**
+
+Лексер извлекает `name` из фигурных скобок и эмитирует токен `Identifier(name)`. Это позволяет записывать произвольные функции в LaTeX-стиле:
+
+```
+\text{my_func}(x, y)      // → my_func(x, y)
+\operatorname{erf}(x)     // → erf(x)
+\text{if}                 // → keyword if (особый случай)
+```
+
+**Disambiguation `\sigma` и `\Gamma`**
+
+Лексер применяет lookahead на один символ:
+
+| Контекст | Трактовка | Трансляция |
+|---------|-----------|-----------|
+| `\sigma{v}` (за командой идёт `{`) | функция `std` | `mc_std(v, v_len)` |
+| `\sigma` без `{` | идентификатор | `__uni_sigma` |
+| `\Gamma{x}` (за командой идёт `{`) | функция `tgamma` | `tgamma(x)` |
+| `\Gamma` без `{` | идентификатор | `__uni_Gamma` |
 
 ---
 

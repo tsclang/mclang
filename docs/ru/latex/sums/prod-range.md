@@ -6,6 +6,7 @@
 
 ```latex
 \prod_{i=a}^{b} expr
+∏(i=a, b) expr   // Unicode-форма (альтернатива)
 ```
 
 ---

@@ -28,7 +28,7 @@ Usage:
   mclang eval <file.mc> [func(arg1, arg2, ...)]
 
 Options:
-  --target <c|wasm|shared|rust|node>   Output target (default: c)
+  --target <c|wasm|shared|rust|node|avr>   Output target (default: c)
   --precision <f64|f32|fixed>     Number precision (default: f64)
   --out <dir>                     Output directory (default: same as input)
   --tokens                        Dump token stream and exit
@@ -88,12 +88,14 @@ function main(): void {
   }
 
   const targetArg = (flag(args, '--target') ?? 'c') as CgenTarget;
-  if (!['c', 'wasm', 'shared', 'rust', 'node'].includes(targetArg)) {
-    console.error(`Error: unknown target '${targetArg}'. Use c, wasm, shared, rust, or node.`);
+  if (!['c', 'wasm', 'shared', 'rust', 'node', 'avr'].includes(targetArg)) {
+    console.error(`Error: unknown target '${targetArg}'. Use c, wasm, shared, rust, node, or avr.`);
     process.exit(1);
   }
 
-  const precisionArg = (flag(args, '--precision') ?? 'f64') as CgenPrecision;
+  // AVR/embedded defaults to f32 precision if not explicitly specified
+  const defaultPrecision = targetArg === 'avr' ? 'f32' : 'f64';
+  const precisionArg = (flag(args, '--precision') ?? defaultPrecision) as CgenPrecision;
   if (!['f64', 'f32', 'fixed'].includes(precisionArg)) {
     console.error(`Error: unknown precision '${precisionArg}'. Use f64, f32, or fixed.`);
     process.exit(1);
@@ -203,6 +205,15 @@ function main(): void {
       console.log(`Wrote ${cPath}`);
       console.log(`Wrote ${hPath}`);
       console.log(`\nBuild with: emcc ${base}.c -o ${base}.js -s EXPORTED_FUNCTIONS='[...]' -lm`);
+    } else if (targetArg === 'avr') {
+      console.log(`Wrote ${cPath}`);
+      console.log(`Wrote ${hPath}`);
+      console.log(`\nBuild for Arduino (AVR):`);
+      console.log(`  avr-gcc -mmcu=atmega328p -DF_CPU=16000000UL -Os -o ${base}.o ${base}.c -lm`);
+      console.log(`\nBuild for STM32 (ARM Cortex-M):`);
+      console.log(`  arm-none-eabi-gcc -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -Os -o ${base}.o ${base}.c -lm`);
+      console.log(`\nBuild for ESP32:`);
+      console.log(`  xtensa-esp32-elf-gcc -Os -o ${base}.o ${base}.c -lm`);
     } else {
       console.log(`Wrote ${cPath}`);
       console.log(`Wrote ${hPath}`);

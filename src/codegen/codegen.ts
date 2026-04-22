@@ -13,7 +13,7 @@ import type {
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
-export type CgenTarget    = 'c' | 'wasm' | 'shared' | 'rust' | 'node';
+export type CgenTarget    = 'c' | 'wasm' | 'shared' | 'rust' | 'node' | 'avr';
 export type CgenPrecision = 'f64' | 'f32' | 'fixed';
 
 export type CgenOptions = {
@@ -167,10 +167,12 @@ export class CGenerator {
       : this.opts.precision === 'fixed'
         ? '#define MC_USE_8BIT\n'
         : '';
+    const avrDefine = this.opts.target === 'avr' ? '#define MC_AVR_TARGET 1\n' : '';
     const hPrologue = [
       `#ifndef ${guardName}`,
       `#define ${guardName}`,
       '',
+      avrDefine,
       precisionDefine,
       '#include <math.h>',
       '#include <stdint.h>',
@@ -200,6 +202,27 @@ export class CGenerator {
       this.emit('#define MC_USE_FAST_FLOAT');
     } else if (this.opts.precision === 'fixed') {
       this.emit('#define MC_USE_8BIT');
+    }
+
+    // AVR/embedded: mark target and provide fallback IEEE 754 macros
+    if (this.opts.target === 'avr') {
+      this.emit('#define MC_AVR_TARGET 1');
+      this.emit('#ifndef INFINITY');
+      this.emit('  #define INFINITY __builtin_inff()');
+      this.emit('#endif');
+      this.emit('#ifndef NAN');
+      this.emit('  #define NAN __builtin_nanf("")');
+      this.emit('#endif');
+      this.emit('#ifndef isnan');
+      this.emit('  #define isnan(x) __builtin_isnan(x)');
+      this.emit('#endif');
+      this.emit('#ifndef isinf');
+      this.emit('  #define isinf(x) __builtin_isinf(x)');
+      this.emit('#endif');
+      this.emit('#ifndef isfinite');
+      this.emit('  #define isfinite(x) __builtin_isfinite(x)');
+      this.emit('#endif');
+      this.emit('');
     }
 
     // Wasm: include Emscripten header if targeting wasm
