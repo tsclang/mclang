@@ -28,11 +28,21 @@ mclang --version
 ### Из репозитория (для разработчиков)
 
 ```bash
-git clone https://github.com/your-org/mclang.git
+git clone https://github.com/tsclang/mclang.git
 cd mclang
 npm install
 npm run build
 npm link          # делает mclang доступным глобально из локальной сборки
+```
+
+### Демо
+
+```bash
+# Скомпилировать пример
+mclang examples/optics/mc/optics.mc
+
+# Собрать и запустить демо
+cd examples/optics && bash run.sh
 ```
 
 ---

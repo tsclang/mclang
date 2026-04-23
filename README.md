@@ -1,7 +1,14 @@
 # mclang — Math C Language
 
-Компилятор математических формул в чистый Си. Без рантайма, без зависимостей, без боли.
+Компилятор математических формул в чистый Си.
 
+- Без рантайма
+- Без зависимостей
+- Без боли
+
+**Для тех, кто хочет писать формулы, а не бороться с синтаксисом.**
+
+Вы пишете:
 Вы пишете:
 
 $$2.0 * R * \arcsin{\sqrt{\sin{\frac{dlat}{2}}^2 + \cos{lat1} * \cos{lat2} * \sin{\frac{dlon}{2}}^2}}$$
@@ -97,19 +104,25 @@ import "./geometry.mc" as geo  // с псевдонимом
 ## Быстрый старт
 
 ```bash
-npm install
-npm run build
+npm install -g mclang
 
-# Скомпилировать пример
-node dist/cli/index.js examples/optics/mc/optics.mc
+mclang --version
 
-# Собрать и запустить демо
-cd examples/optics && bash run.sh
+mclang some_file.mc
 ```
 
 ---
 
 ## Примеры
+
+```bash
+# Скомпилировать пример
+mclang examples/optics/mc/optics.mc
+
+# Собрать и запустить демо
+cd examples/optics && bash run.sh
+```
+
 
 | Пример | Что внутри |
 |--------|-----------|
@@ -154,4 +167,15 @@ pub(x) = _helper(x) + 1.0
 
 ---
 
-mclang — для тех, кто хочет писать формулы, а не бороться с синтаксисом.
+## Документация
+
+- [en](https://github.com/tsclang/mclang/blob/main/docs/en/index.md)
+- [ch](https://github.com/tsclang/mclang/blob/main/docs/ch/index.md)
+- [ru](https://github.com/tsclang/mclang/blob/main/docs/ru/index.md)
+
+## Самоучитель
+
+- [en](https://github.com/tsclang/mclang/blob/main/tutorial/en/index.md)
+- [ch](https://github.com/tsclang/mclang/blob/main/tutorial/ch/index.md)
+- [ru](https://github.com/tsclang/mclang/blob/main/tutorial/ru/index.md)
+
